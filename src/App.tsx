@@ -1,268 +1,220 @@
-// @ts-nocheck
-import React, { useState, useEffect, useCallback } from 'react';
-import type { Step, GameMode } from './types.js';
-import { generateLadder } from './logic/generator.js';
-import { useMode } from './hooks/useMode.js';
-import { GAME_DURATION_SECONDS, formatTime, getTimeColor } from './utils/timer.js';
-import './App.css';
+// src/App.tsx
+import { useEffect, useMemo, useState } from 'react';
+import { useMode } from './hooks/useMode';
+import { generateLadder, generateLadderForSeed } from './logic/generator';
+import type { Step } from './types';
 
-function App() {
-  const { mode, setMode } = useMode();
+type Status = 'idle' | 'playing' | 'done';
+
+const pad = (n: number) => n.toString().padStart(2, '0');
+const todayKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+export default function App() {
+  const [mode, setMode] = useMode(); // tuple from the hook
+  const [status, setStatus] = useState<Status>('idle');
   const [steps, setSteps] = useState<Step[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isFinished, setIsFinished] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(GAME_DURATION_SECONDS);
-  
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [timeLeft, setTimeLeft] = useState<number>(60);
+  const [isDaily, setIsDaily] = useState<boolean>(true); // Daily ON by default
 
-  // Auto-finish when timer reaches 0
-  const finishGame = useCallback(() => {
-    setIsPlaying(false);
-    setIsFinished(true);
-  }, []);
+  const seed = `${mode}-${todayKey()}`;             // e.g. hard-2025-08-28
+  const playedKey = `played:${seed}`;
+  const canPlayToday = !isDaily || !localStorage.getItem(playedKey);
 
-  // Timer effect - simplified and more reliable
+  const start = () => {
+    if (!canPlayToday) return;
+    const ladder = isDaily ? generateLadderForSeed(mode, seed) : generateLadder(mode);
+    setSteps(ladder);
+    setAnswers(Array(ladder.length).fill(''));
+    setTimeLeft(60);
+    setStatus('playing');
+  };
+
+  const finish = () => {
+    setStatus('done');
+    if (isDaily) localStorage.setItem(playedKey, '1'); // lock Daily for today (per mode)
+  };
+
+  // 60s countdown with auto-finish
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    
-    if (isPlaying && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            // Timer reached 0 - auto finish
-            finishGame();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (status !== 'playing') return;
+    if (timeLeft <= 0) {
+      finish();
+      return;
     }
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [isPlaying, finishGame]);
+    const id = setInterval(() => setTimeLeft(t => (t > 0 ? t - 1 : 0)), 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, timeLeft]);
 
-  const startGame = () => {
-    const newSteps = generateLadder(mode);
-    setSteps(newSteps);
-    setIsPlaying(true);
-    setIsFinished(false);
-    setTimeRemaining(GAME_DURATION_SECONDS);
-  };
+  // live correctness counter
+  const correctCount = useMemo(
+    () =>
+      steps.reduce((acc, s, i) => {
+        const v = Number(answers[i]);
+        return acc + (Number.isFinite(v) && v === s.answer ? 1 : 0);
+      }, 0),
+    [answers, steps]
+  );
 
-  const resetGame = () => {
+  const reset = () => {
+    setStatus('idle');
     setSteps([]);
-    setIsPlaying(false);
-    setIsFinished(false);
-    setTimeRemaining(GAME_DURATION_SECONDS);
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      setTimerInterval(null);
-    }
+    setAnswers([]);
+    setTimeLeft(60);
   };
-
-  const handleAnswerChange = (index: number, value: string) => {
-    const newSteps = [...steps];
-    newSteps[index].userAnswer = value;
-    
-    // Check if answer is correct
-    const numericAnswer = parseFloat(value);
-    if (!isNaN(numericAnswer) && numericAnswer === newSteps[index].answer) {
-      newSteps[index].isCorrect = true;
-    } else if (value.trim() === '') {
-      newSteps[index].isCorrect = null;
-    } else {
-      newSteps[index].isCorrect = false;
-    }
-    
-    setSteps(newSteps);
-  };
-
-  const getScore = () => {
-    const correct = steps.filter(step => step.isCorrect === true).length;
-    return { correct, total: steps.length };
-  };
-
-  const score = getScore();
 
   return (
-    <div className="App" style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>MicroMath</h1>
-      
-      {/* Timer Display */}
-      {(isPlaying || isFinished) && (
-        <div style={{ 
-          marginBottom: '20px', 
-          textAlign: 'center',
-          fontSize: '24px',
-          fontWeight: 'bold',
-          color: getTimeColor(timeRemaining)
-        }}>
-          ⏱️ {formatTime(timeRemaining)}
-          {timeRemaining === 0 && <span style={{ color: '#dc3545' }}> - TIME UP!</span>}
-        </div>
-      )}
-      
-      {/* Mode Toggle */}
-      <div style={{ marginBottom: '20px' }}>
-        <button 
+    <div style={{ maxWidth: 780, margin: '40px auto', padding: '0 16px', fontFamily: 'system-ui, sans-serif' }}>
+      <h1 style={{ marginBottom: 8, textAlign: 'center' }}>MicroMath</h1>
+
+      {/* Mode + Daily row */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+        <button
           onClick={() => setMode('normal')}
-          disabled={isPlaying}
-          style={{ 
-            marginRight: '10px', 
-            padding: '8px 16px',
-            backgroundColor: mode === 'normal' ? '#007bff' : '#f8f9fa',
-            color: mode === 'normal' ? 'white' : 'black',
-            border: '1px solid #ccc',
-            cursor: isPlaying ? 'not-allowed' : 'pointer',
-            opacity: isPlaying ? 0.6 : 1
+          style={{
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: mode === 'normal' ? '2px solid #000' : '1px solid #ccc',
+            background: mode === 'normal' ? '#e6f0ff' : '#fff',
+            cursor: 'pointer'
           }}
         >
           Normal (5 steps)
         </button>
-        <button 
+
+        <button
           onClick={() => setMode('hard')}
-          disabled={isPlaying}
-          style={{ 
-            padding: '8px 16px',
-            backgroundColor: mode === 'hard' ? '#007bff' : '#f8f9fa',
-            color: mode === 'hard' ? 'white' : 'black',
-            border: '1px solid #ccc',
-            cursor: isPlaying ? 'not-allowed' : 'pointer',
-            opacity: isPlaying ? 0.6 : 1
+          style={{
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: mode === 'hard' ? '2px solid #000' : '1px solid #ccc',
+            background: mode === 'hard' ? '#cfe0ff' : '#fff',
+            cursor: 'pointer'
           }}
         >
           Hard (10 steps)
         </button>
+
+        <label style={{ marginLeft: 12, display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input
+            type="checkbox"
+            checked={isDaily}
+            onChange={(e) => setIsDaily(e.target.checked)}
+          />
+          Daily
+        </label>
+
+        <div style={{ marginLeft: 'auto', fontWeight: 600 }}>
+          ⏱ {pad(Math.floor(timeLeft / 60))}:{pad(timeLeft % 60)}
+        </div>
       </div>
 
-      {/* Game Controls */}
-      <div style={{ marginBottom: '20px' }}>
-        {!isPlaying && !isFinished && (
-          <button 
-            onClick={startGame}
-            style={{ 
-              padding: '10px 20px', 
-              fontSize: '16px', 
-              backgroundColor: '#28a745', 
-              color: 'white', 
-              border: 'none', 
-              cursor: 'pointer',
-              marginRight: '10px'
+      {/* Controls */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {status !== 'playing' && (
+          <button
+            onClick={start}
+            disabled={!canPlayToday}
+            title={!canPlayToday ? 'Already played today. Uncheck Daily to practice.' : ''}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 8,
+              border: '1px solid #0a7',
+              background: canPlayToday ? '#19c37d' : '#bcd',
+              color: '#fff',
+              cursor: canPlayToday ? 'pointer' : 'not-allowed'
             }}
           >
-            Start {mode === 'normal' ? 'Normal' : 'Hard'} Mode (60s)
+            Start {isDaily ? 'Today’s' : 'Random'} {mode === 'hard' ? 'Hard' : 'Normal'} Mode (60s)
           </button>
         )}
-        
-        {isPlaying && (
-          <button 
-            onClick={finishGame}
-            style={{ 
-              padding: '10px 20px', 
-              fontSize: '16px', 
-              backgroundColor: '#ffc107', 
-              color: 'black', 
-              border: 'none', 
-              cursor: 'pointer',
-              marginRight: '10px'
-            }}
+
+        {status === 'playing' && (
+          <button
+            onClick={finish}
+            style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid #ccc', cursor: 'pointer' }}
           >
             Finish Early
           </button>
         )}
-        
-        {(isPlaying || isFinished) && (
-          <button 
-            onClick={resetGame}
-            style={{ 
-              padding: '10px 20px', 
-              fontSize: '16px', 
-              backgroundColor: '#dc3545', 
-              color: 'white', 
-              border: 'none', 
-              cursor: 'pointer'
-            }}
+
+        {(status === 'done' || status === 'idle') && (
+          <button
+            onClick={reset}
+            style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid #ccc', cursor: 'pointer' }}
           >
             Reset
           </button>
         )}
       </div>
 
-      {/* Score Display */}
-      {isFinished && (
-        <div style={{ 
-          marginBottom: '20px', 
-          padding: '15px', 
-          backgroundColor: timeRemaining === 0 ? '#fff3cd' : '#f8f9fa', 
-          border: '1px solid #dee2e6',
-          borderRadius: '5px'
-        }}>
-          <h3>Final Score: {score.correct}/{score.total}</h3>
-          <p>
-            {timeRemaining === 0 && '⏰ Time ran out! '}
-            {score.correct === score.total ? '🎉 Perfect!' : `You got ${score.correct} out of ${score.total} correct!`}
-          </p>
-          <p style={{ fontSize: '14px', color: '#6c757d' }}>
-            {timeRemaining > 0 ? `Finished with ${formatTime(timeRemaining)} remaining` : 'Game completed at time limit'}
-          </p>
+      {/* Already played notice */}
+      {isDaily && !canPlayToday && status === 'idle' && (
+        <div style={{ marginBottom: 12, color: '#b00' }}>
+          You already played today’s {mode} ladder. Uncheck <strong>Daily</strong> to practice,
+          or come back tomorrow.
         </div>
       )}
 
-      {/* Game Steps */}
+      {/* Ladder */}
       {steps.length > 0 && (
-        <div>
-          <h3>Solve the ladder:</h3>
-          {steps.map((step, index) => (
-            <div 
-              key={index} 
-              style={{ 
-                marginBottom: '15px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                fontSize: '18px'
-              }}
-            >
-              <span style={{ marginRight: '10px', minWidth: '200px' }}>
-                {step.prompt}
-              </span>
-              <input
-                type="text"
-                value={step.userAnswer}
-                onChange={(e) => handleAnswerChange(index, e.target.value)}
-                disabled={isFinished}
-                style={{
-                  padding: '5px 10px',
-                  fontSize: '16px',
-                  width: '80px',
-                  marginRight: '10px',
-                  textAlign: 'center',
-                  opacity: isFinished ? 0.7 : 1
-                }}
-                placeholder="?"
-              />
-              <span style={{ fontSize: '20px', minWidth: '30px' }}>
-                {step.isCorrect === true && '✅'}
-                {step.isCorrect === false && '❌'}
-              </span>
-            </div>
-          ))}
+        <div style={{ display: 'grid', gap: 12 }}>
+          {steps.map((s, i) => {
+            const val = answers[i] ?? '';
+            const numeric = Number(val);
+            const correct = Number.isFinite(numeric) && numeric === s.answer;
+            const disabled = status !== 'playing' || timeLeft <= 0;
+
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ minWidth: 260, fontSize: 18 }}>{i + 1}. {s.prompt} =</div>
+                <input
+                  inputMode="numeric"
+                  disabled={disabled}
+                  value={val}
+                  onChange={(e) => {
+                    const next = answers.slice();
+                    next[i] = e.target.value.trim();
+                    setAnswers(next);
+                  }}
+                  style={{
+                    padding: '6px 8px',
+                    borderRadius: 6,
+                    border: '1px solid #ccc',
+                    fontSize: 16,
+                    width: 140,
+                    background: disabled ? '#f6f6f6' : '#fff'
+                  }}
+                />
+                <span style={{ minWidth: 80 }}>
+                  {val.length > 0 ? (correct ? '✅' : '❌') : ''}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Instructions */}
-      {!isPlaying && !isFinished && steps.length === 0 && (
-        <div style={{ marginTop: '40px', color: '#6c757d' }}>
-          <p>Choose your mode and click Start to begin the 60-second challenge!</p>
+      {/* Summary */}
+      {steps.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <strong>Final Score:</strong> {correctCount}/{steps.length}
+          {status === 'done' && (timeLeft <= 0 ? ' — TIME UP!' : ' — Finished')}
+        </div>
+      )}
+
+      {/* Help text */}
+      {status === 'idle' && (
+        <div style={{ marginTop: 16, color: '#333' }}>
           <p><strong>Normal:</strong> 5 steps with +, −, ×, ÷</p>
           <p><strong>Hard:</strong> 10 steps with +, −, ×, ÷, ^ and parentheses</p>
-          <p>⏰ <strong>You have 60 seconds to complete as many as possible!</strong></p>
+          <p>Daily uses today’s date + mode to create the same ladder for everyone. Turn it off to practice unlimited.</p>
         </div>
       )}
     </div>
   );
 }
-
-export default App;

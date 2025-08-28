@@ -1,25 +1,31 @@
-// @ts-nocheck
-import { useState, useEffect } from 'react';
-import type { GameMode } from '../types.js';
+// src/hooks/useMode.ts
+import { useEffect, useState } from 'react';
+import type { Mode } from '../types';
 
-const STORAGE_KEY = 'micromath.mode';
+const KEY = 'micromath.mode';
 
-export function useMode() {
-  const [mode, setMode] = useState<GameMode>('normal');
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'normal' || stored === 'hard') {
-      setMode(stored);
+/**
+ * useMode()
+ * - Returns a tuple [mode, setMode] so you can do:
+ *   const [mode, setMode] = useMode();
+ */
+export function useMode(): [Mode, (m: Mode) => void] {
+  const [mode, setMode] = useState<Mode>(() => {
+    try {
+      const saved = localStorage.getItem(KEY);
+      return saved === 'hard' ? 'hard' : 'normal';
+    } catch {
+      return 'normal';
     }
-  }, []);
+  });
 
-  // Save to localStorage when mode changes
-  const updateMode = (newMode: GameMode) => {
-    setMode(newMode);
-    localStorage.setItem(STORAGE_KEY, newMode);
-  };
+  useEffect(() => {
+    try {
+      localStorage.setItem(KEY, mode);
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [mode]);
 
-  return { mode, setMode: updateMode };
+  return [mode, setMode];
 }
