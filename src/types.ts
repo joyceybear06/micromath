@@ -16,4 +16,6 @@ export interface GameState {
   isPlaying: boolean;
   isFinished: boolean;
   startTime: number | null;
+  timeRemaining: number; // seconds left
+  timerInterval: NodeJS.Timeout | null;
 }
