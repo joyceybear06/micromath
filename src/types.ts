@@ -1,21 +1,13 @@
-// @ts-nocheck
-export type GameMode = 'normal' | 'hard';
-
-export type Operator = '+' | '-' | '*' | '/' | '^';
+// src/types.ts
+export type Mode = 'normal' | 'hard';
+export type Op = '+' | '-' | '×' | '÷' | '^';
 
 export interface Step {
-  prompt: string;  // e.g., "15 + 7 = ?"
-  answer: number;  // correct answer
-  userAnswer: string;  // what user typed
-  isCorrect: boolean | null;  // null = not answered yet
-}
-
-export interface GameState {
-  mode: GameMode;
-  steps: Step[];
-  isPlaying: boolean;
-  isFinished: boolean;
-  startTime: number | null;
-  timeRemaining: number; // seconds left
-  timerInterval: NodeJS.Timeout | null;
+  /** What the user sees */
+  prompt: string;
+  /** Correct numeric answer */
+  answer: number;
+  /** Optional UI fields so both generator and UI compile */
+  userAnswer?: number | null;
+  isCorrect?: boolean | null;
 }
