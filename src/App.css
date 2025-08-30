@@ -1,42 +1,263 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+/* ====================== CLEAR BLUE (true black text) ====================== */
+:root{
+  --primary: #2563EB;
+  --primary-50: #EAF2FF;
+  --success: #16A34A;
+  --coral:   #ff7875;
+
+  --bg:      #FAFBFF;
+  --card:    #FFFFFF;
+  --border:  #C9DBFF55;
+  --text:    #000000;
+
+  --gray-50:  #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-300: #D1D5DB;
+}
+
+* { box-sizing: border-box; }
+
+html, body{
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji", sans-serif;
+}
+
+/* Banner */
+.top-banner{
+  width: 100%;
+  padding: 10px 16px;
   text-align: center;
+  font-weight: 600;
+  color: #000;
+  background: linear-gradient(90deg, #DFE9FF, #F3F7FF);
+  border-bottom: 1px solid var(--border);
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* App container */
+.app-container{
+  max-width: 860px;
+  margin: 12px auto 40px;
+  padding: 0 16px;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* Header */
+.header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+  position: relative;          /* create positioning context */
+  min-height: 56px;            /* ensure enough height for the title row */
+  justify-content: flex-end;
+}
+.header .brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: max-content;
+}
+.brand{
+  margin: 0;
+  color: var(--primary);
+  font-weight: 800;
+  font-size: clamp(2rem, 1.4rem + 1.4vw, 2.6rem);
+}
+.header-timer{
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.25rem, 1.05rem + 0.8vw, 1.5rem);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 10px;
+}
+.header-timer.danger{
+  color: #dc2626 !important;
+  border-color: #fca5a5 !important;
+  background: #fff5f5 !important;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* Tabs + Daily */
+.controls-row{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 10px 0 8px;
+}
+.tab{
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--gray-300);
+  background: var(--card);
+  cursor: pointer;
+}
+.tab--active{
+  border: 2px solid var(--primary);
+  background: var(--primary-50);
+}
+.daily-toggle{
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.card {
-  padding: 2em;
+/* Meta bar */
+.meta-bar{
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 6px 0 12px;
+}
+.meta-item{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.meta-label{
+  color: #334155;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.meta-value{
+  font-weight: 700;
+  margin-left: 4px;
+}
+/* Final score highlight (when it shows after finish) */
+.meta-item.score .score-value{
+  color: var(--primary);
+  font-weight: 800;
 }
 
-.read-the-docs {
-  color: #888;
+/* Buttons */
+.primary-buttons{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 6px 0 12px;
+}
+.btn{
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid var(--gray-300);
+  background: var(--card);
+  transition: transform .02s ease-in-out, background .15s;
+}
+.btn:active{ transform: translateY(1px); }
+.btn--primary{ background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn--primary:hover{ background: #1e55d6; }
+.btn--outline{ background: #fff; border-color: var(--primary); color: var(--primary); }
+.btn--outline:hover{ background: var(--gray-100); }
+.btn--disabled{ opacity: .6; cursor: not-allowed; }
+
+/* Notice */
+.notice{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  margin-bottom: 12px;
+}
+.notice--warn{ border-color: var(--coral); color: var(--coral); background: #fff1f0; }
+
+/* Cards / Ladder */
+.card{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.02);
+}
+.ladder{
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.ladder-row{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ladder-prompt{ min-width: 160px; font-size: 18px; }
+.answer-input{
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--gray-300);
+  font-size: 16px;
+  width: 140px;
+  background: var(--card);
+}
+.answer-input:disabled{ background: #f6f6f6; }
+.result-icon{ min-width: 24px; }
+
+/* Instructions (emoji version) */
+.rules{ margin-top: 14px; padding: 14px; }
+.rules h2{ margin: 0 0 8px; color: var(--primary); }
+.rules h3{ margin: 10px 0 6px; }
+.rules ul{ margin: 6px 0 10px 16px; line-height: 1.5; }
+.rules-paragraph{ margin: 6px 0; line-height: 1.6; }
+/* Stronger border just for the Instructions card */
+.rules.card {
+  border-color: #A7BFFF; /* slightly darker than the default subtle blue */
+}
+
+
+/* Final score popup (~6s) */
+.score-popup{
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 40;
+  animation: fadeOut 6s ease forwards;
+}
+.score-popup-card{
+  background: #ffffff;
+  border: 1px solid var(--border);
+  padding: 16px 22px;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  transform: scale(.96);
+  animation: popIn .2s ease-out forwards;
+}
+.score-title{
+  font-size: 14px;
+  color: #334155;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.score-value-big{
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--primary);
+}
+@keyframes popIn{ to { transform: scale(1); } }
+@keyframes fadeOut{
+  0% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Footer */
+.footer{
+  margin-top: 18px;
+  padding-top: 8px;
+  color: #64748b;
+  font-size: 13px;
 }
