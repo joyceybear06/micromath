@@ -13,7 +13,7 @@ import "./App.css";
 /* Timer & iOS-safe input */
 import Timer from "./components/Timer";
 import SmartNumberInput from "./components/SmartNumberInput";
-import { useTheme, type Theme } from "./hooks/useTheme"; // NEW
+import { useTheme, type Theme } from "./hooks/useTheme"; // theme hook
 
 type Status = "idle" | "playing" | "done";
 
@@ -44,7 +44,7 @@ export default function App() {
   const [showScorePopup, setShowScorePopup] = useState<boolean>(false);
 
   // THEME (persisted)
-  const [theme, setTheme] = useTheme(); // NEW
+  const [theme, setTheme] = useTheme();
 
   // Confetti (perfect only)
   const [showConfetti, setShowConfetti] = useState<boolean>(false);
@@ -81,6 +81,36 @@ export default function App() {
 
   // Helper: total seconds for this run (60, or 75 if Hard + toggle ON)
   const totalSeconds = 60 + (mode === "hard" && hardPlus15 ? 15 : 0);
+
+  // ---------------------- NEW: refs & helpers for ± and focus ----------------------
+  // Keep refs to each answer input so we can focus after toggling ±
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  const toggleSignAt = (idx: number) => {
+    setAnswers((prev) => {
+      const next = prev.slice();
+      const cur = (next[idx] ?? "").replace(/[–—−]/g, "-"); // normalize exotic minus
+      if (cur.startsWith("-")) {
+        next[idx] = cur.slice(1); // remove minus
+      } else {
+        next[idx] = cur.length ? `-${cur.replace(/^-/, "")}` : "-"; // add minus or start with "-"
+      }
+      return next;
+    });
+
+    // Put focus back and move caret to the end
+    requestAnimationFrame(() => {
+      const el = inputRefs.current[idx];
+      if (el) {
+        el.focus();
+        try {
+          const l = el.value.length;
+          el.setSelectionRange(l, l);
+        } catch {}
+      }
+    });
+  };
+  // -------------------------------------------------------------------------------
 
   // Start / Finish / Reset ----------------------------------------------------
   const start = () => {
@@ -152,14 +182,13 @@ export default function App() {
   }, [status, timeLeft]);
 
   // Let CSS know when a round is running (for mobile timer positioning)
-useEffect(() => {
-  const v = status === "playing" ? "1" : "0";
-  document.body.setAttribute("data-playing", v);
-  return () => {
-    document.body.removeAttribute("data-playing");
-  };
-}, [status]);
-
+  useEffect(() => {
+    const v = status === "playing" ? "1" : "0";
+    document.body.setAttribute("data-playing", v);
+    return () => {
+      document.body.removeAttribute("data-playing");
+    };
+  }, [status]);
 
   // Scoring ------------------------------------------------------------------
   const correctCount = useMemo(
@@ -274,25 +303,48 @@ useEffect(() => {
   const currentStreak = Number(localStorage.getItem("perfectDays") || "0");
   const streakDisplay = isPerfectRun ? currentStreak + 1 : currentStreak;
 
+  /* ---------------------- ENTER → Next logic ---------------------- */
+  const getAnswerInputs = () =>
+    Array.from(
+      document.querySelectorAll<HTMLInputElement>("input.answer-input, .answer-input input")
+    );
+
+  const handleAnswerKeyDown = (e: React.KeyboardEvent, idx: number) => {
+    if (e.key !== "Enter") return;
+
+    // Don’t submit forms / don’t beep
+    e.preventDefault();
+
+    // If empty, stay here
+    const val = (answers[idx] ?? "").trim();
+    if (!val) return;
+
+    // If there is a next input, focus it. Otherwise do nothing (user can click "End").
+    const inputs = getAnswerInputs();
+    const next = inputs[idx + 1];
+    if (next && !next.disabled) {
+      requestAnimationFrame(() => next.focus());
+    }
+  };
+  /* ---------------------------------------------------------------- */
+
   return (
     <>
-{/* Top banner (centered title, picker on far right) */}
-<div className="top-banner">
-  <div className="top-banner-title">⏱ MicroMath — 60-second daily ladder</div>
+      {/* Top banner (centered title, picker on far right) */}
+      <div className="top-banner">
+        <div className="top-banner-title">⏱ MicroMath — 60-second daily ladder</div>
 
-  <select
-    aria-label="Theme"
-    className="theme-picker"
-    value={theme}
-    onChange={(e) => setTheme(e.target.value as Theme)}
-  >
-    {/* rename only this label */}
-    <option value="blue">Default</option>
-    <option value="light">Light</option>
-    <option value="dark">Dark</option>
-  </select>
-</div>  {/* ← THIS was missing */}
-
+        <select
+          aria-label="Theme"
+          className="theme-picker"
+          value={theme}
+          onChange={(e) => setTheme(e.target.value as Theme)}
+        >
+          <option value="blue">Default</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
 
       <main className="app-container">
         {/* Header */}
@@ -300,8 +352,7 @@ useEffect(() => {
           <h1 className="brand">MicroMath</h1>
           <div
             className={
-              "header-timer" +
-              (status === "playing" && timeLeft <= 10 ? " danger" : "")
+              "header-timer" + (status === "playing" && timeLeft <= 10 ? " danger" : "")
             }
             aria-live="polite"
           >
@@ -348,10 +399,7 @@ useEffect(() => {
           </label>
 
           {mode === "hard" && status !== "playing" && (
-            <label
-              className="daily-toggle"
-              title="Optional: adds 15 seconds to Hard mode"
-            >
+            <label className="daily-toggle" title="Optional: adds 15 seconds to Hard mode">
               <input
                 type="checkbox"
                 checked={hardPlus15}
@@ -400,7 +448,7 @@ useEffect(() => {
 
           {status === "playing" && (
             <button onClick={finish} className="btn btn--outline">
-              Finish Early
+              End
             </button>
           )}
 
@@ -434,14 +482,39 @@ useEffect(() => {
                 <div key={i} className="ladder-row">
                   <div className="ladder-prompt">
                     {i + 1}.{" "}
-                    {mode === "hard"
-                      ? renderPromptWithSuperscript(s.prompt)
-                      : s.prompt}
+                    {mode === "hard" ? renderPromptWithSuperscript(s.prompt) : s.prompt}
                     {!hasEqualsInPrompt ? " =" : ""}
                   </div>
 
                   <div style={disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined}>
+                    {/* ± button for iOS users to enter negative numbers */}
+                    <button
+                      type="button"
+                      aria-label="Toggle negative sign"
+                      onClick={() => toggleSignAt(i)}
+                      disabled={disabled}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        marginRight: 8,
+                        borderRadius: 10,
+                        border: "1px solid var(--border)",
+                        background: "var(--card)",
+                        color: "var(--text)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        userSelect: "none",
+                        cursor: disabled ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      ±
+                    </button>
+
                     <SmartNumberInput
+                      ref={(el) => { inputRefs.current[i] = el; }}  // ← return void
                       value={val}
                       onChange={(raw) => {
                         const next = answers.slice();
@@ -450,12 +523,12 @@ useEffect(() => {
                       }}
                       allowDecimal={false}
                       className="answer-input"
+                      // Enter → next (no change)
+                      onKeyDown={(e: any) => handleAnswerKeyDown(e, i)}
                     />
                   </div>
 
-                  <span className="result-icon">
-                    {val ? (correct ? "✅" : "❌") : ""}
-                  </span>
+                  <span className="result-icon">{val ? (correct ? "✅" : "❌") : ""}</span>
                 </div>
               );
             })}
@@ -475,9 +548,8 @@ useEffect(() => {
                 Press <strong>Start</strong>. You have <strong>60 seconds</strong> to answer as many as you can.
               </li>
               <li>
-                <strong>Hard only:</strong> before you start, you can enable{" "}
-                <strong>Additional 15 seconds</strong>. When ON, Hard runs for{" "}
-                <strong>75 seconds</strong> instead of 60.
+                <strong>Hard only:</strong> before you start, you can enable <strong>Additional 15 seconds</strong>.
+                When ON, Hard runs for <strong>75 seconds</strong> instead of 60.
               </li>
               <li>Each answer is checked instantly.</li>
             </ul>
@@ -486,50 +558,54 @@ useEffect(() => {
             <p className="rules-paragraph">
               With <strong>Daily</strong> ON, everyone gets the same puzzle for that day (one play per mode).
             </p>
-            <p className="rules-paragraph">
-              Turn it OFF for unlimited practice with new random puzzles.
-            </p>
+            <p className="rules-paragraph">Turn it OFF for unlimited practice with new random puzzles.</p>
 
             <h3>Modes at a glance</h3>
             <ul>
-              <li><strong>Easy</strong>: whole numbers; + − × ÷.</li>
-              <li><strong>Normal</strong>: same operations with slightly tougher numbers.</li>
-              <li><strong>Hard</strong>: adds exponents (^) and parentheses.</li>
+              <li>
+                <strong>Easy</strong>: whole numbers; + − × ÷.
+              </li>
+              <li>
+                <strong>Normal</strong>: same operations with slightly tougher numbers.
+              </li>
+              <li>
+                <strong>Hard</strong>: adds exponents (^) and parentheses.
+              </li>
             </ul>
           </div>
         )}
 
         {/* PERFECT popup */}
-        {showScorePopup && status === "done" && steps.length > 0 && (
-          isPerfectRun ? (
-            <div className={`score-popup long`} role="alert" aria-live="assertive">
-              <div className="score-popup-card perfect">
-                <div className="score-title">Perfect Score 🎉</div>
-                <div className="score-value-big">
-                  {correctCount}/{steps.length}
-                </div>
-                <div className="rules-paragraph" style={{ textAlign: "center", marginTop: 4 }}>
-                  Streak: <strong>{streakDisplay}</strong> day{streakDisplay === 1 ? "" : "s"}
-                </div>
-                <div className="popup-actions">
-                  <button className="btn btn--outline" onClick={handleShare}>Share</button>
-                </div>
+        {showScorePopup && status === "done" && steps.length > 0 && (isPerfectRun ? (
+          <div className={`score-popup long`} role="alert" aria-live="assertive">
+            <div className="score-popup-card perfect">
+              <div className="score-title">Perfect Score 🎉</div>
+              <div className="score-value-big">
+                {correctCount}/{steps.length}
+              </div>
+              <div className="rules-paragraph" style={{ textAlign: "center", marginTop: 4 }}>
+                Streak: <strong>{streakDisplay}</strong> day{streakDisplay === 1 ? "" : "s"}
+              </div>
+              <div className="popup-actions">
+                <button className="btn btn--outline" onClick={handleShare}>
+                  Share
+                </button>
               </div>
             </div>
-          ) : (
-            <div className="score-popup" role="alert" aria-live="assertive">
-              <div className="score-popup-card">
-                <div className="score-title">Final score</div>
-                <div className="score-value-big">
-                  {correctCount}/{steps.length}
-                </div>
-                <div className="rules-paragraph" style={{ textAlign: "center", marginTop: 6 }}>
-                  {encMessage}
-                </div>
+          </div>
+        ) : (
+          <div className="score-popup" role="alert" aria-live="assertive">
+            <div className="score-popup-card">
+              <div className="score-title">Final score</div>
+              <div className="score-value-big">
+                {correctCount}/{steps.length}
+              </div>
+              <div className="rules-paragraph" style={{ textAlign: "center", marginTop: 6 }}>
+                {encMessage}
               </div>
             </div>
-          )
-        )}
+          </div>
+        ))}
 
         {/* Confetti */}
         {showConfetti && (
@@ -543,7 +619,7 @@ useEffect(() => {
                   background: p.bg,
                   animationDelay: `${p.delay}s`,
                   animationDuration: `${p.duration}s`,
-                  transform: `rotate(${p.deg}deg)`
+                  transform: `rotate(${p.deg}deg)`,
                 }}
               />
             ))}
