@@ -10,4 +10,5 @@ export interface Step {
   /** Optional UI fields so generator returns are valid */
   userAnswer?: number | null;
   isCorrect?: boolean | null;
+  
 }

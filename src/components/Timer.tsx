@@ -1,106 +1,89 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+// src/components/Timer.tsx
+import { useEffect, useRef, useState } from "react";
 
-/**
- * Drift-proof mobile-safe countdown timer.
- * Uses a fixed end time (performance.now-based) so it stays accurate
- * even if the browser throttles timers or the tab is backgrounded.
- */
-export default function Timer({
-  durationMs = 60000,
-  running,
-  onExpire,
-  format = "ss", // "ss" or "mm:ss"
-  tickHz = 20,   // UI refresh rate; keep light for mobile
-  className,
-}: {
-  durationMs?: number;
-  running: boolean;
-  onExpire?: () => void;
-  format?: "ss" | "mm:ss";
-  tickHz?: number;
-  className?: string;
-}) {
-  const [remaining, setRemaining] = useState<number>(durationMs);
-  const endAtRef = useRef<number | null>(null);
-  const intRef = useRef<number | null>(null);
-
-  const computeRemaining = useCallback(() => {
-    if (endAtRef.current == null) return durationMs;
-    const now = performance.now();
-    return Math.max(0, Math.round(endAtRef.current - now));
-  }, [durationMs]);
-
-  const tick = useCallback(() => {
-    const r = computeRemaining();
-    setRemaining(r);
-    if (r <= 0) {
-      stop();
-      onExpire?.();
-    }
-  }, [computeRemaining, onExpire]);
-
-  function start() {
-    // start from the current remaining value (supports pause/resume)
-    const now = performance.now();
-    endAtRef.current = now + (remaining > 0 ? remaining : durationMs);
-    clear();
-    // Use a lightweight interval; remaining is computed from end time so drift doesn’t matter.
-    intRef.current = window.setInterval(tick, Math.max(30, Math.floor(1000 / tickHz)));
-    // Kick an immediate tick for snappy UI
-    tick();
-    document.addEventListener("visibilitychange", onVisibility, { passive: true });
+declare global {
+  interface Window {
+    __mmTimer?: {
+      start: () => void;
+      pause: () => void;
+      reset: () => void;
+      getElapsedMs: () => number;
+      isRunning: () => boolean;
+    };
   }
-
-  function stop() {
-    clear();
-    // snap remaining to 0 when stopped by expiry
-    setRemaining((r) => Math.max(0, r));
-  }
-
-  function clear() {
-    if (intRef.current != null) {
-      clearInterval(intRef.current);
-      intRef.current = null;
-    }
-    document.removeEventListener("visibilitychange", onVisibility);
-  }
-
-  function onVisibility() {
-    // Re-sync immediately when page becomes visible again.
-    tick();
-  }
-
-  // When duration changes, reset remaining.
-  useEffect(() => {
-    setRemaining(durationMs);
-    endAtRef.current = null;
-    return clear;
-  }, [durationMs]);
-
-  // React to running state.
-  useEffect(() => {
-    if (running) start();
-    else clear();
-    return clear;
-  }, [running]);
-
-  const text = formatTime(remaining, format);
-
-  return (
-    <span
-      className={className}
-      aria-label={`Time remaining ${text}`}
-      style={{ fontVariantNumeric: "tabular-nums" }}
-    >
-      {text}
-    </span>
-  );
 }
 
-function formatTime(ms: number, fmt: "ss" | "mm:ss") {
-  if (fmt === "ss") return Math.ceil(ms / 1000).toString();
-  const total = Math.ceil(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
+function fmt(ms: number) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return `${m}:${ss}`;
+}
+
+export default function Timer() {
+  const [elapsed, setElapsed] = useState(0);
+  const startAtRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const runningRef = useRef(false);
+
+  const tick = (t: number) => {
+    if (!runningRef.current || startAtRef.current == null) return;
+    setElapsed(t - startAtRef.current);
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const start = () => {
+    if (runningRef.current) return;
+    const now = performance.now();
+    startAtRef.current = now - elapsed;
+    runningRef.current = true;
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const pause = () => {
+    if (!runningRef.current) return;
+    runningRef.current = false;
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  };
+
+  const reset = () => {
+    pause();
+    setElapsed(0);
+    startAtRef.current = null;
+  };
+
+  // expose globally + wire start-on-first-input and pause-on-blur
+  useEffect(() => {
+    window.__mmTimer = {
+      start,
+      pause,
+      reset,
+      getElapsedMs: () => elapsed,
+      isRunning: () => runningRef.current,
+    };
+
+    const onDocInput = (e: Event) => {
+      if (runningRef.current) return;
+      const t = e.target as HTMLInputElement | HTMLTextAreaElement | null;
+      if (!t) return;
+      const val = (t as HTMLInputElement).value ?? "";
+      if (val.length > 0) start();
+    };
+    const onBlur = () => pause();
+
+    document.addEventListener("input", onDocInput, true);
+    window.addEventListener("blur", onBlur);
+
+    return () => {
+      document.removeEventListener("input", onDocInput, true);
+      window.removeEventListener("blur", onBlur);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed]);
+
+  return <span aria-label="Stopwatch" title="Stopwatch">{fmt(elapsed)}</span>;
 }

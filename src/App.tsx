@@ -1,19 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMode } from "./hooks/useMode";
-import {
-  generateLadder,
-  generateLadderForSeed,
-  NORMAL_COUNT,
-  HARD_COUNT,
-} from "./logic/generator";
-import { generateEasy, generateEasyForSeed, EASY_COUNT } from "./logic/easy";
+import { generateLadder, generateLadderForSeed } from "./logic/generator";
+import { generateEasy, generateEasyForSeed } from "./logic/easy";
 import type { Step } from "./types";
 import "./App.css";
 
-/* Timer & iOS-safe input */
-import Timer from "./components/Timer";
+/* Stopwatch & iOS-safe input */
+import { useStopwatch } from "./hooks/useStopwatch";
 import SmartNumberInput from "./components/SmartNumberInput";
-import { useTheme, type Theme } from "./hooks/useTheme"; // theme hook
+import { useTheme, type Theme } from "./hooks/useTheme";
 
 type Status = "idle" | "playing" | "done";
 
@@ -23,7 +18,7 @@ const todayKey = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-/** Rotating encouragements for NON-perfect runs (exact phrase + one emoji) */
+/** Rotating encouragements for NON-perfect runs */
 const ENCOURAGEMENTS = [
   "You're close—Keep Going! 🌟",
   "Almost there—Push Through! 💪",
@@ -32,85 +27,204 @@ const ENCOURAGEMENTS = [
   "Good work—Finish Strong! 🔁",
 ];
 
-const HARD_PLUS_15_KEY = "hardPlus15"; // persistence key
+/* ---------------- Inline Results Modal ---------------- */
+type ResultsProps = {
+  open: boolean;
+  timeMs: number;
+  score: number;
+  total: number;
+  perfect: boolean;
+  onClose: () => void;
+  message?: string;
+};
+
+function fmtTime(ms: number) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return `${m}:${ss}`;
+}
+
+function InlineResultsModal({
+  open,
+  timeMs,
+  score,
+  total,
+  perfect,
+  onClose,
+  message,
+}: ResultsProps) {
+  const shareText = useMemo(
+    () => `I just finished MicroMath — Score ${score}/${total} in ${fmtTime(timeMs)}!`,
+    [score, total, timeMs]
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    let canceled = false;
+    (async () => {
+      try {
+        // @ts-ignore optional confetti
+        const mod = await import("canvas-confetti");
+        if (canceled) return;
+        mod.default({
+          particleCount: perfect ? 160 : 80,
+          spread: perfect ? 90 : 70,
+          startVelocity: perfect ? 55 : 35,
+          origin: { y: 0.6 },
+          scalar: perfect ? 1.1 : 0.9,
+        });
+      } catch {
+        /* optional */
+      }
+    })();
+    return () => {
+      canceled = true;
+    };
+  }, [open, perfect]);
+
+  const onShare = async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const text = `${shareText}\n${url}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ text, url });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        alert("Copied results to clipboard!");
+      } else {
+        prompt("Copy your results:", text);
+      }
+    } catch {}
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          background: "#ffffff",
+          borderRadius: 12,
+          boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+          padding: 20,
+          border: "2px solid #e9d5ff",
+        }}
+      >
+        <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>
+          <span
+            style={{
+              display: "inline-block",
+              padding: "4px 10px",
+              borderRadius: 999,
+              background: perfect
+                ? "linear-gradient(90deg,#a78bfa,#fca5a5)"
+                : "linear-gradient(90deg,#c4b5fd,#bfdbfe)",
+              color: "#111827",
+            }}
+          >
+            {perfect ? "Perfect run!" : "Nice work!"}
+          </span>
+        </h2>
+
+        <div style={{ lineHeight: 1.7, marginBottom: 12 }}>
+          <div>
+            Score: <strong>{score}</strong> / {total}
+          </div>
+          <div>
+            Time: <strong>{fmtTime(timeMs)}</strong>
+          </div>
+        </div>
+
+        {!perfect && (
+          <p style={{ marginTop: 6, marginBottom: 10, color: "#374151" }}>
+            {message ?? "Nice effort—keep going!"}
+          </p>
+        )}
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <button
+            onClick={onShare}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "1px solid #e5e7eb",
+              background: "#f8fafc",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Share
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "none",
+              background: "#111827",
+              color: "white",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+/* ---------------------------- End modal ----------------------------------- */
 
 export default function App() {
   const [mode, setMode] = useMode();
   const [status, setStatus] = useState<Status>("idle");
   const [steps, setSteps] = useState<Step[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState<number>(60);
   const [isDaily, setIsDaily] = useState<boolean>(true);
-  const [showScorePopup, setShowScorePopup] = useState<boolean>(false);
+  const [paused, setPaused] = useState<boolean>(false);
 
   // THEME (persisted)
   const [theme, setTheme] = useTheme();
 
-  // Confetti (perfect only)
-  const [showConfetti, setShowConfetti] = useState<boolean>(false);
-  const [confettiPieces, setConfettiPieces] = useState<
-    Array<{ left: number; delay: number; bg: string; deg: number; duration: number }>
-  >([]);
-
-  // encouragement
-  const [encMessage, setEncMessage] = useState<string>("");
-  const lastEncIdxRef = useRef<number | null>(null);
-
-  // drift-proof timer refs
-  const endAtRef = useRef<number | null>(null);
-  const tickRef = useRef<number | null>(null);
-
-  // Hard +15s user choice (persists)
-  const [hardPlus15, setHardPlus15] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(HARD_PLUS_15_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  // ensure the theme attribute is on <body> (so light palette applies globally)
   useEffect(() => {
-    try {
-      localStorage.setItem(HARD_PLUS_15_KEY, hardPlus15 ? "1" : "0");
-    } catch {}
-  }, [hardPlus15]);
+    document.body.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  // Stopwatch
+  const sw = useStopwatch();
+
+  // Results modal state
+  const [results, setResults] = useState({
+    open: false,
+    timeMs: 0,
+    score: 0,
+    total: 8,
+    perfect: false,
+    message: undefined as string | undefined,
+  });
 
   // Daily seed + played-today key
   const seed = `${mode}-${todayKey()}`;
   const playedKey = `played:${seed}`;
   const canPlayToday = !isDaily || !localStorage.getItem(playedKey);
-
-  // Helper: total seconds for this run (60, or 75 if Hard + toggle ON)
-  const totalSeconds = 60 + (mode === "hard" && hardPlus15 ? 15 : 0);
-
-  // ---------------------- NEW: refs & helpers for ± and focus ----------------------
-  // Keep refs to each answer input so we can focus after toggling ±
-  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
-
-  const toggleSignAt = (idx: number) => {
-    setAnswers((prev) => {
-      const next = prev.slice();
-      const cur = (next[idx] ?? "").replace(/[–—−]/g, "-"); // normalize exotic minus
-      if (cur.startsWith("-")) {
-        next[idx] = cur.slice(1); // remove minus
-      } else {
-        next[idx] = cur.length ? `-${cur.replace(/^-/, "")}` : "-"; // add minus or start with "-"
-      }
-      return next;
-    });
-
-    // Put focus back and move caret to the end
-    requestAnimationFrame(() => {
-      const el = inputRefs.current[idx];
-      if (el) {
-        el.focus();
-        try {
-          const l = el.value.length;
-          el.setSelectionRange(l, l);
-        } catch {}
-      }
-    });
-  };
-  // -------------------------------------------------------------------------------
 
   // Start / Finish / Reset ----------------------------------------------------
   const start = () => {
@@ -119,67 +233,73 @@ export default function App() {
     let ladder: Step[];
     if (mode === "easy") {
       ladder = isDaily ? generateEasyForSeed(seed) : generateEasy();
+
+      // EASY ONLY: remove ÷ and TOP-UP to 8 questions (Daily & Practice)
+      ladder = ladder.filter((s) => !s.prompt.includes("÷"));
+      if (ladder.length < 8) {
+        const seen = new Set(ladder.map((s) => s.prompt));
+        while (ladder.length < 8) {
+          const more = generateEasy().filter((s) => !s.prompt.includes("÷"));
+          for (const step of more) {
+            if (!seen.has(step.prompt)) {
+              ladder.push(step);
+              seen.add(step.prompt);
+              if (ladder.length >= 8) break;
+            }
+          }
+          if (more.length === 0) break;
+        }
+      }
+      ladder = ladder.slice(0, 8);
     } else {
       ladder = isDaily ? generateLadderForSeed(mode, seed) : generateLadder(mode);
+      ladder = ladder.filter((s) => Number.isInteger(s.answer)).slice(0, 8);
     }
 
     setSteps(ladder);
     setAnswers(Array(ladder.length).fill(""));
-    setTimeLeft(totalSeconds);
-    setShowScorePopup(false);
-    setShowConfetti(false);
-    setStatus("playing");
 
-    // drift-proof ticker using a fixed deadline
-    endAtRef.current = performance.now() + totalSeconds * 1000;
-    if (tickRef.current != null) {
-      clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
-    const sync = () => {
-      if (endAtRef.current == null) return;
-      const ms = endAtRef.current - performance.now();
-      const secs = Math.max(0, Math.ceil(ms / 1000));
-      setTimeLeft(secs);
-    };
-    tickRef.current = window.setInterval(sync, 200);
-    sync();
-    document.addEventListener("visibilitychange", sync, { passive: true });
+    setStatus("playing");
+    setPaused(false);
+
+    // Reset stopwatch to 0:00 until the first keystroke
+    sw.reset();
   };
 
   const finish = () => {
     setStatus("done");
     if (isDaily) localStorage.setItem(playedKey, "1");
 
-    if (tickRef.current != null) {
-      clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
-    endAtRef.current = null;
+    sw.stop();
+
+    const score = steps.length
+      ? steps.reduce((acc, s, i) => acc + (Number(answers[i]) === s.answer ? 1 : 0), 0)
+      : 0;
+    const perfect = steps.length > 0 && score === steps.length;
+
+    const pickEnc = () => {
+      if (perfect) return undefined;
+      const len = ENCOURAGEMENTS.length;
+      return ENCOURAGEMENTS[Math.floor(Math.random() * len)];
+    };
+
+    setResults({
+      open: true,
+      timeMs: sw.ms,
+      score,
+      total: steps.length || 8,
+      perfect,
+      message: pickEnc(),
+    });
   };
 
   const reset = () => {
     setStatus("idle");
     setSteps([]);
     setAnswers([]);
-    setTimeLeft(60 + (mode === "hard" && hardPlus15 ? 15 : 0));
-    setShowScorePopup(false);
-    setShowConfetti(false);
-
-    if (tickRef.current != null) {
-      clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
-    endAtRef.current = null;
+    setPaused(false);
+    sw.reset();
   };
-
-  // finish when time hits zero
-  useEffect(() => {
-    if (status === "playing" && timeLeft <= 0) {
-      finish();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, timeLeft]);
 
   // Let CSS know when a round is running (for mobile timer positioning)
   useEffect(() => {
@@ -189,6 +309,27 @@ export default function App() {
       document.body.removeAttribute("data-playing");
     };
   }, [status]);
+
+  // Global keydown listener to start stopwatch on FIRST keystroke
+  useEffect(() => {
+    if (status !== "playing" || paused || sw.running) return;
+
+    const handler = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const inAnswer =
+        !!t &&
+        (t.classList?.contains("answer-input") ||
+          (t.closest && !!t.closest(".answer-input")));
+      if (!inAnswer) return;
+
+      if (/^[0-9+\-*/^().]$/.test(e.key)) {
+        sw.start();
+      }
+    };
+
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [status, paused, sw]);
 
   // Scoring ------------------------------------------------------------------
   const correctCount = useMemo(
@@ -208,50 +349,6 @@ export default function App() {
       localStorage.setItem(k, String(cur + 1));
     }
   }, [status, correctCount, steps.length]);
-
-  // Final-score popup + confetti
-  useEffect(() => {
-    if (status !== "done") return;
-
-    const perfect = steps.length > 0 && correctCount === steps.length;
-    setShowScorePopup(true);
-
-    if (!perfect) {
-      const len = ENCOURAGEMENTS.length;
-      let idx = Math.floor(Math.random() * len);
-      if (lastEncIdxRef.current !== null && len > 1) {
-        while (idx === lastEncIdxRef.current) {
-          idx = Math.floor(Math.random() * len);
-        }
-      }
-      lastEncIdxRef.current = idx;
-      setEncMessage(ENCOURAGEMENTS[idx]);
-    }
-
-    let confettiTimer: number | undefined;
-    if (perfect) {
-      const colors = ["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#10B981", "#3B82F6"];
-      const pieces = Array.from({ length: 80 }).map(() => ({
-        left: Math.random() * 100,
-        delay: Math.random() * 0.4,
-        bg: colors[Math.floor(Math.random() * colors.length)],
-        deg: Math.random() * 360,
-        duration: 2.3 + Math.random() * 0.8,
-      }));
-      setConfettiPieces(pieces);
-      setShowConfetti(true);
-      confettiTimer = window.setTimeout(() => setShowConfetti(false), 2800);
-    }
-
-    const popupDuration = perfect ? 9000 : 6000;
-    const popupTimer = window.setTimeout(() => setShowScorePopup(false), popupDuration);
-
-    return () => {
-      if (confettiTimer) clearTimeout(confettiTimer);
-      clearTimeout(popupTimer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
 
   // Meta values --------------------------------------------------------------
   const perfectDays = Number(localStorage.getItem("perfectDays") || "0");
@@ -282,57 +379,33 @@ export default function App() {
     return <>{parts}</>;
   };
 
-  // Share handler (perfect only)
-  const handleShare = async () => {
-    const modeLabel = mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy";
-    const url = window.location.href;
-    const text = `MicroMath — I got a PERFECT score in ${modeLabel} (${isDaily ? "Daily" : "Practice"})! Try it: ${url}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: "MicroMath", text, url });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-        alert("Link copied!");
-      }
-    } catch {
-      // user cancelled
-    }
-  };
-
-  const isPerfectRun = status === "done" && steps.length > 0 && correctCount === steps.length;
-  const currentStreak = Number(localStorage.getItem("perfectDays") || "0");
-  const streakDisplay = isPerfectRun ? currentStreak + 1 : currentStreak;
-
-  /* ---------------------- ENTER → Next logic ---------------------- */
-  const getAnswerInputs = () =>
-    Array.from(
-      document.querySelectorAll<HTMLInputElement>("input.answer-input, .answer-input input")
-    );
-
-  const handleAnswerKeyDown = (e: React.KeyboardEvent, idx: number) => {
+  /* ---------------------- ENTER → focus next input ---------------------- */
+  const handleAnswerKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    idx: number
+  ) => {
     if (e.key !== "Enter") return;
-
-    // Don’t submit forms / don’t beep
     e.preventDefault();
-
-    // If empty, stay here
     const val = (answers[idx] ?? "").trim();
     if (!val) return;
 
-    // If there is a next input, focus it. Otherwise do nothing (user can click "End").
-    const inputs = getAnswerInputs();
+    const inputs = Array.from(
+      document.querySelectorAll<HTMLInputElement>(
+        "input.answer-input, .answer-input input"
+      )
+    );
     const next = inputs[idx + 1];
     if (next && !next.disabled) {
       requestAnimationFrame(() => next.focus());
     }
   };
-  /* ---------------------------------------------------------------- */
+  /* --------------------------------------------------------------------- */
 
   return (
     <>
       {/* Top banner (centered title, picker on far right) */}
       <div className="top-banner">
-        <div className="top-banner-title">⏱ MicroMath — 60-second daily ladder</div>
+        <div className="top-banner-title">⏱ MicroMath </div>
 
         <select
           aria-label="Theme"
@@ -347,46 +420,56 @@ export default function App() {
       </div>
 
       <main className="app-container">
-        {/* Header */}
-        <header className="header">
-          <h1 className="brand">MicroMath</h1>
+        {/* Header: title + subtitle centered; timer on the right */}
+        <header
+          className="header"
+          style={{
+            position: "relative",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            marginBottom: 24,
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <h1 className="brand" style={{ position: "static", transform: "none", marginBottom: 8 }}>
+              MicroMath
+            </h1>
+            <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
+              Daily brain warm-up.
+            </p>
+          </div>
+
           <div
-            className={
-              "header-timer" + (status === "playing" && timeLeft <= 10 ? " danger" : "")
-            }
+            className="header-timer"
             aria-live="polite"
+            style={{ position: "absolute", right: 0, top: 0 }}
           >
-            ⏱{" "}
-            <Timer
-              durationMs={totalSeconds * 1000}
-              running={status === "playing"}
-              onExpire={finish}
-              format="mm:ss"
-            />
+            ⏱ {sw.formatted}
           </div>
         </header>
 
-        {/* Tabs + Daily toggle + +15s toggle */}
+        {/* Tabs + Daily toggle */}
         <div className="controls-row">
           <button
             onClick={() => setMode("easy")}
             className={`tab ${mode === "easy" ? "tab--active" : ""}`}
           >
-            Easy ({EASY_COUNT} steps)
+            Easy (8 questions)
           </button>
 
           <button
             onClick={() => setMode("normal")}
             className={`tab ${mode === "normal" ? "tab--active" : ""}`}
           >
-            Normal ({NORMAL_COUNT} steps)
+            Normal (8 questions)
           </button>
 
           <button
             onClick={() => setMode("hard")}
             className={`tab ${mode === "hard" ? "tab--active" : ""}`}
           >
-            Hard ({HARD_COUNT} steps)
+            Hard (8 questions)
           </button>
 
           <label className="daily-toggle">
@@ -397,17 +480,6 @@ export default function App() {
             />
             <span>Daily</span>
           </label>
-
-          {mode === "hard" && status !== "playing" && (
-            <label className="daily-toggle" title="Optional: adds 15 seconds to Hard mode">
-              <input
-                type="checkbox"
-                checked={hardPlus15}
-                onChange={(e) => setHardPlus15(e.target.checked)}
-              />
-              <span>Additional 15 seconds</span>
-            </label>
-          )}
         </div>
 
         {/* Meta bar */}
@@ -441,14 +513,8 @@ export default function App() {
               title={!canPlayToday ? "Already played today. Uncheck Daily to practice." : ""}
               className={`btn btn--primary ${!canPlayToday ? "btn--disabled" : ""}`}
             >
-              {isDaily ? "Start Today’s" : "Start Random"}{" "}
-              {mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"} ({totalSeconds}s)
-            </button>
-          )}
-
-          {status === "playing" && (
-            <button onClick={finish} className="btn btn--outline">
-              End
+              {isDaily ? "Start Today's" : "Start Random"}{" "}
+              {mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
             </button>
           )}
 
@@ -462,7 +528,7 @@ export default function App() {
         {/* Already played notice */}
         {isDaily && !canPlayToday && status === "idle" && (
           <div className="notice notice--warn">
-            You already played today’s <strong>{mode}</strong> ladder. Turn{" "}
+            You already played today's <strong>{mode}</strong> ladder. Turn{" "}
             <strong>Daily</strong> OFF to practice unlimited, or come back tomorrow.
           </div>
         )}
@@ -474,7 +540,7 @@ export default function App() {
               const val = answers[i] ?? "";
               const numeric = Number(val);
               const correct = Number.isFinite(numeric) && numeric === s.answer;
-              const disabled = status !== "playing" || timeLeft <= 0;
+              const disabled = status !== "playing" || paused;
 
               const hasEqualsInPrompt = s.prompt.includes("=");
 
@@ -487,44 +553,20 @@ export default function App() {
                   </div>
 
                   <div style={disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined}>
-                    {/* ± button for iOS users to enter negative numbers */}
-                    <button
-                      type="button"
-                      aria-label="Toggle negative sign"
-                      onClick={() => toggleSignAt(i)}
-                      disabled={disabled}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        marginRight: 8,
-                        borderRadius: 10,
-                        border: "1px solid var(--border)",
-                        background: "var(--card)",
-                        color: "var(--text)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 700,
-                        lineHeight: 1,
-                        userSelect: "none",
-                        cursor: disabled ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      ±
-                    </button>
-
                     <SmartNumberInput
-                      ref={(el) => { inputRefs.current[i] = el; }}  // ← return void
                       value={val}
                       onChange={(raw) => {
+                        // Start stopwatch on first character typed
+                        if (status === "playing" && !paused && !sw.running) sw.start();
+
                         const next = answers.slice();
                         next[i] = raw;
                         setAnswers(next);
                       }}
                       allowDecimal={false}
                       className="answer-input"
-                      // Enter → next (no change)
-                      onKeyDown={(e: any) => handleAnswerKeyDown(e, i)}
+                      disabled={disabled}
+                      onKeyDown={(e) => handleAnswerKeyDown(e, i)}
                     />
                   </div>
 
@@ -535,14 +577,41 @@ export default function App() {
           </div>
         )}
 
+        {/* Bottom actions: Submit + Pause/Resume */}
+        {status === "playing" && (
+          <div
+            className="bottom-actions"
+            style={{
+              marginTop: 20,
+              display: "flex",
+              gap: 12,
+              justifyContent: "flex-start",
+            }}
+          >
+            <button onClick={finish} className="btn btn--outline">Submit</button>
+            <button
+              onClick={() => {
+                setPaused((p) => {
+                  const next = !p;
+                  if (next) sw.stop(); else sw.start();
+                  return next;
+                });
+              }}
+              className="btn btn--outline"
+            >
+              {paused ? "Resume" : "Pause"}
+            </button>
+          </div>
+        )}
+
         {/* Instructions */}
         {status === "idle" && (
           <div className="rules card">
             <h2>📘 How it works</h2>
             <ul>
               <li>
-                Select <strong>Easy</strong> ({EASY_COUNT}), <strong>Normal</strong> ({NORMAL_COUNT}), or{" "}
-                <strong>Hard</strong> ({HARD_COUNT}).
+                Select <strong>Easy</strong> (8), <strong>Normal</strong> (8), or{" "}
+                <strong>Hard</strong> (8).
               </li>
               <li>
                 Press <strong>Start</strong>. You have <strong>60 seconds</strong> to answer as many as you can.
@@ -575,58 +644,18 @@ export default function App() {
           </div>
         )}
 
-        {/* PERFECT popup */}
-        {showScorePopup && status === "done" && steps.length > 0 && (isPerfectRun ? (
-          <div className={`score-popup long`} role="alert" aria-live="assertive">
-            <div className="score-popup-card perfect">
-              <div className="score-title">Perfect Score 🎉</div>
-              <div className="score-value-big">
-                {correctCount}/{steps.length}
-              </div>
-              <div className="rules-paragraph" style={{ textAlign: "center", marginTop: 4 }}>
-                Streak: <strong>{streakDisplay}</strong> day{streakDisplay === 1 ? "" : "s"}
-              </div>
-              <div className="popup-actions">
-                <button className="btn btn--outline" onClick={handleShare}>
-                  Share
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="score-popup" role="alert" aria-live="assertive">
-            <div className="score-popup-card">
-              <div className="score-title">Final score</div>
-              <div className="score-value-big">
-                {correctCount}/{steps.length}
-              </div>
-              <div className="rules-paragraph" style={{ textAlign: "center", marginTop: 6 }}>
-                {encMessage}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Confetti */}
-        {showConfetti && (
-          <div className="confetti" aria-hidden="true">
-            {confettiPieces.map((p, idx) => (
-              <span
-                key={idx}
-                className="piece"
-                style={{
-                  left: `${p.left}%`,
-                  background: p.bg,
-                  animationDelay: `${p.delay}s`,
-                  animationDuration: `${p.duration}s`,
-                  transform: `rotate(${p.deg}deg)`,
-                }}
-              />
-            ))}
-          </div>
-        )}
-
         <footer className="footer">© {new Date().getFullYear()} MicroMath</footer>
+
+        {/* Render results modal */}
+        <InlineResultsModal
+          open={results.open}
+          timeMs={results.timeMs}
+          score={results.score}
+          total={results.total}
+          perfect={results.perfect}
+          message={results.message}
+          onClose={() => setResults((r) => ({ ...r, open: false }))}
+        />
       </main>
     </>
   );

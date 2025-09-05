@@ -59,6 +59,12 @@ html, body{
   font-weight: 800;
   font-size: clamp(2rem, 1.4rem + 1.4vw, 2.6rem);
 }
+.brand-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  color: #6b7280; /* neutral; themed below */
+}
 .header-timer{
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -126,7 +132,6 @@ html, body{
   font-weight: 700;
   margin-left: 4px;
 }
-/* Final score highlight (when it shows after finish) */
 .meta-item.score .score-value{
   color: var(--primary);
   font-weight: 800;
@@ -148,9 +153,9 @@ html, body{
   transition: transform .02s ease-in-out, background .15s;
 }
 .btn:active{ transform: translateY(1px); }
-.btn--primary{ background: var(--primary); border-color: var(--primary); color: #fff; }
-.btn--primary:hover{ background: #1e55d6; }
-.btn--outline{ background: #fff; border-color: var(--primary); color: var(--primary); }
+.btn--primary{ background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--primary:hover{ filter: brightness(0.95); }
+.btn--outline{ background: #fff; border-color: var(--accent); color: var(--accent); }
 .btn--outline:hover{ background: var(--gray-100); }
 .btn--disabled{ opacity: .6; cursor: not-allowed; }
 
@@ -194,29 +199,27 @@ html, body{
 .answer-input:disabled{ background: #f6f6f6; }
 .result-icon{ min-width: 24px; }
 
-/* Instructions (emoji only on section headings) */
+/* Instructions */
 .rules{ margin-top: 14px; padding: 14px; }
 .rules h2{ margin: 0 0 8px; color: var(--primary); }
 .rules h3{ margin: 10px 0 6px; }
 .rules ul{ margin: 6px 0 10px 16px; line-height: 1.5; }
 .rules-paragraph{ margin: 6px 0; line-height: 1.6; }
 
-/* Stronger border just for the Instructions card (you asked earlier) */
+/* Stronger border just for the Instructions card */
 .rules.card { border-color: #A7BFFF; }
 
-/* Final score popup (base) */
+/* Final score popup */
 .score-popup{
   position: fixed;
   inset: 0;
   display: grid;
   place-items: center;
-  pointer-events: none;           /* overlay non-interactive */
+  pointer-events: none;
   z-index: 40;
   animation: fadeOut 6s ease forwards;
 }
-.score-popup.long{
-  animation: fadeOut 9s ease forwards; /* +3s when perfect */
-}
+.score-popup.long{ animation: fadeOut 9s ease forwards; }
 .score-popup-card{
   background: #ffffff;
   border: 1px solid var(--border);
@@ -226,339 +229,163 @@ html, body{
   transform: scale(.96);
   animation: popIn .2s ease-out forwards;
   text-align: center;
-  pointer-events: auto;          /* allow clicks inside (Share button) */
+  pointer-events: auto;
 }
-.score-popup-card.perfect{
-  padding: 22px 28px;            /* slightly bigger box for perfect */
-  border-radius: 16px;
-}
-.score-title{
-  font-size: 14px;
-  color: #334155;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-.score-value-big{
-  font-size: 28px;
-  font-weight: 900;
-  color: var(--primary);
-}
-.score-popup-card.perfect .score-value-big{
-  font-size: 32px;               /* bigger score on perfect */
-}
-.popup-actions{
-  margin-top: 10px;
-  display: flex;
-  justify-content: center;
-}
+.score-popup-card.perfect{ padding: 22px 28px; border-radius: 16px; }
+.score-title{ font-size: 14px; color: #334155; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.score-value-big{ font-size: 28px; font-weight: 900; color: var(--primary); }
+.score-popup-card.perfect .score-value-big{ font-size: 32px; }
+.popup-actions{ margin-top: 10px; display: flex; justify-content: center; }
 
-/* Confetti overlay (only shown on perfect) */
-.confetti{
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 60;
-}
-.confetti .piece{
-  position: absolute;
-  top: -12px;
-  width: 8px;
-  height: 14px;
-  border-radius: 2px;
-  opacity: .95;
-  animation-name: confettiFall;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-@keyframes confettiFall{
-  to { transform: translateY(110vh) rotate(720deg); }
-}
+/* Confetti */
+.confetti{ position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 60; }
+.confetti .piece{ position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; opacity: .95; animation-name: confettiFall; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes confettiFall{ to { transform: translateY(110vh) rotate(720deg); } }
 
 /* Footer */
-.footer{
-  margin-top: 18px;
-  padding-top: 8px;
-  color: #64748b;
-  font-size: 13px;
-}
+.footer{ margin-top: 18px; padding-top: 8px; color: #64748b; font-size: 13px; }
 
 /* --- Center the brand AND keep timer pinned right --- */
 .header{ position: relative; min-height: 56px; justify-content: flex-end; }
-.header .brand{
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  width: max-content;
-}
+.header .brand{ position: absolute; left: 50%; transform: translateX(-50%); text-align: center; width: max-content; }
 
 @keyframes popIn{ to { transform: scale(1); } }
-@keyframes fadeOut{
-  0% { opacity: 1; }
-  85% { opacity: 1; }
-  100% { opacity: 0; }
-}
+@keyframes fadeOut{ 0% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+
 /* ---------- THEME TOKENS (default = Light Blue) ---------- */
 :root,
 [data-theme="blue"] {
-  --bg: #f7faff;          /* page background */
-  --text: #0f172a;        /* main text */
-  --card: #ffffff;        /* cards/inputs */
-  --border: #dbeafe;      /* soft blue border */
-  --accent: #3b82f6;      /* brand blue */
-  --muted: #475569;       /* slate-600: better contrast than before */
+  --bg: #f7faff;
+  --text: #0f172a;
+  --card: #ffffff;
+  --border: #dbeafe;
+  --accent: #3b82f6;
+  --muted: #475569;
   --banner-bg: #e8f1ff;
 }
 
-/* Light (neutral) */
+/* ===================== LIGHT THEME — COTTON-CANDY POP ===================== */
 [data-theme="light"] {
-  --bg: #ffffff;
-  --text: #0f172a;
+  --bg: #fff7fe;
+  --text: #1f2937;
   --card: #ffffff;
-  --border: #e5e7eb;
-  --accent: #2563eb;
-  --muted: #4b5563;       /* gray-600 */
-  --banner-bg: #f3f4f6;
+  --border: #e9d5ff;   /* soft lilac */
+  --accent: #7c3aed;   /* lilac (base; buttons override to gradient) */
+  --muted: #6b7280;
+  --banner-bg: #f6f0ff;
 }
 
-/* Dark (HIGHER CONTRAST) */
+/* Pastel background blobs on body so it spans the full page */
+body[data-theme="light"]{
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #ffe4f4 0%, transparent 60%),
+    radial-gradient(1000px 500px at 90% -10%, #e9d5ff 0%, transparent 55%),
+    #fff7fe;
+}
+
+/* Title + subtitle colors */
+[data-theme="light"] .brand{ color:#7c3aed; }
+[data-theme="light"] .brand-subtitle{ color:#6366f1; }
+
+/* Timer pill & borders */
+[data-theme="light"] .header-timer{ background:#fff; border:1px solid #ead8ff; }
+
+/* Tabs (soft lilac active) */
+[data-theme="light"] .tab{ border:1px solid #e9d5ff; }
+[data-theme="light"] .tab--active{
+  background:#f5e1ff;
+  border-color:#d8b4fe;
+  color:#4c1d95;
+}
+
+/* Primary button: bubblegum → lilac gradient */
+[data-theme="light"] .btn.btn--primary{
+  background: linear-gradient(90deg, #f472b6 0%, #7c3aed 100%);
+  border: none;
+  color:#fff;
+}
+[data-theme="light"] .btn.btn--outline{
+  background:#fff;
+  color:#1f2937;
+  border:1px solid #e9d5ff;
+}
+
+/* Inputs */
+[data-theme="light"] .answer-input{ background:#fff; border:2px solid #f3e8ff; }
+[data-theme="light"] .answer-input:focus{ outline:none; border-color:#d8b4fe; box-shadow:0 0 0 3px #f5e1ff; }
+
+/* ============================== DARK THEME =============================== */
 [data-theme="dark"] {
-  --bg: #0b1220;          /* deep navy */
-  --text: #f1f5f9;        /* very light text (slate-100) */
-  --card: #111827;        /* near-black card for separation */
-  --border: #253042;      /* visible but subtle border */
-  --accent: #93c5fd;      /* lighter blue for dark backgrounds */
-  --muted: #cbd5e1;       /* slate-300 for secondary text */
-  --banner-bg: #0f172a;   /* slightly lighter than page bg */
+  --bg: #0b1220;
+  --text: #f1f5f9;
+  --card: #111827;
+  --border: #253042;
+  --accent: #93c5fd;
+  --muted: #cbd5e1;
+  --banner-bg: #0f172a;
 }
 
 /* Apply base colors */
-body {
-  background: var(--bg);
-  color: var(--text);
-}
+body { background: var(--bg); color: var(--text); }
 
 /* ---------- TOP BANNER (center title) ---------- */
-.top-banner {
-  position: relative;
-  background: var(--banner-bg);
-  border-bottom: 1px solid var(--border);
-  padding: 8px 12px;
-  height: 40px;
-}
-
-/* Absolutely center the title, regardless of the picker width */
-.top-banner-title {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-weight: 500;
-  color: var(--text);
-  white-space: nowrap;
-  pointer-events: none; /* avoid blocking clicks on the picker */
-}
-
-/* Keep the picker fixed to the right */
-.theme-picker {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 12px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
+.top-banner { position: relative; background: var(--banner-bg); border-bottom: 1px solid var(--border); padding: 8px 12px; height: 40px; }
+.top-banner-title { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-weight: 500; color: var(--text); white-space: nowrap; pointer-events: none; }
+.theme-picker { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; padding: 6px 8px; border-radius: 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); }
 
 /* ---------- COMMON SURFACES pick up theme tokens ---------- */
-.card,
-.rules,
-.ladder,
-.meta-bar,
-.notice,
-.score-popup-card {
-  background: var(--card);
-  color: var(--text);
-  border-color: var(--border);
-}
+.card, .rules, .ladder, .meta-bar, .notice, .score-popup-card { background: var(--card); color: var(--text); border-color: var(--border); }
+.meta-label, .rules .rules-paragraph, .notice { color: var(--muted); }
 
-/* Make “muted” text actually readable in dark mode */
-.meta-label,
-.rules .rules-paragraph,
-.notice {
-  color: var(--muted);
-}
-
-/* Tabs & buttons use accent so they pop in dark mode */
+/* Tabs & buttons use accent; Light overrides above adjust specifics */
 .tab { color: var(--text); border-color: var(--border); }
 .tab--active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
 [data-theme="light"] .tab--active,
-[data-theme="blue"] .tab--active { color: #fff; } /* keep light themes white text */
+[data-theme="blue"] .tab--active { color: #fff; }
 
-.btn--primary { background: var(--accent); color: #0b1220; border-color: var(--accent); }
-[data-theme="light"] .btn--primary,
-[data-theme="blue"] .btn--primary { color: #fff; }
-
+.btn--primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+[data-theme="dark"] .btn--primary { color: #0b1220; }
 .btn--outline { color: var(--accent); border-color: var(--accent); background: transparent; }
 
-.answer-input {
-  background: var(--card);
-  color: var(--text);
-  border-color: var(--border);
-}
-/* ========= DARK MODE READABILITY FIXES (timer + meta chips) ========= */
+.answer-input { background: var(--card); color: var(--text); border-color: var(--border); }
 
-/* Header timer pill: higher contrast on dark */
-[data-theme="dark"] .header-timer {
-  background: #1f2937;      /* slate-800 */
-  color: #f8fafc;           /* slate-50 */
-  border: 1px solid #334155;/* slate-600 */
-}
+/* ========= DARK MODE READABILITY (timer + meta chips) ========= */
+[data-theme="dark"] .header-timer { background: #1f2937; color: #f8fafc; border: 1px solid #334155; }
+[data-theme="dark"] .header-timer.danger { color: #fecaca; border-color: #ef4444; }
+[data-theme="dark"] .meta-item .meta-value, [data-theme="dark"] .meta-item .score-value { background: #1f2937; color: #e5e7eb; border: 1px solid #334155; }
+[data-theme="dark"] .meta-item .meta-label { color: #cbd5e1; }
 
-/* Keep the 'danger' state readable on dark (last 10s) */
-[data-theme="dark"] .header-timer.danger {
-  color: #fecaca;           /* red-200 text while background stays dark */
-  border-color: #ef4444;    /* red-500 border so it pops */
-}
+/* Unify Perfect Days + Status chips (no inner rectangle) */
+.meta-bar { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+[data-theme="blue"] .meta-bar .meta-item:not(.score), [data-theme="dark"] .meta-bar .meta-item:not(.score) { border-radius: 12px; }
+[data-theme="blue"] .meta-bar .meta-item:not(.score) { background: var(--card) !important; border: 1px solid var(--border) !important; }
+[data-theme="blue"] .meta-bar .meta-item:not(.score) .meta-label, [data-theme="blue"] .meta-bar .meta-item:not(.score) .meta-value { background: transparent !important; color: var(--text) !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+[data-theme="dark"] .meta-bar .meta-item:not(.score) { background: #1f2937 !important; border: 1px solid #334155 !important; color: #f8fafc; }
+[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-label, [data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-value { background: transparent !important; color: #f8fafc !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
 
-/* Perfect days + Status value chips */
-[data-theme="dark"] .meta-item .meta-value,
-[data-theme="dark"] .meta-item .score-value {
-  background: #1f2937;      /* same as timer for consistency */
-  color: #e5e7eb;           /* slate-200 for strong contrast */
-  border: 1px solid #334155;
-}
-
-/* Optional: labels can be slightly dim but legible */
-[data-theme="dark"] .meta-item .meta-label {
-  color: #cbd5e1;           /* slate-300 */
-}
-/* Make Perfect days + Status chips match the gray timer in DARK mode */
-[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-value {
-  background: #1f2937;      /* same surface as timer */
-  color: #f8fafc;           /* bright text */
-  border: 1px solid #334155;/* visible border like timer */
-}
-/* === Dark mode: make BOTH parts of the chips match the timer pill === */
-/* Timer colors for reference: background #1f2937, border #334155, text #f8fafc */
-
-[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-label,
-[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-value {
-  background: #1f2937;      /* same as timer */
-  color: #f8fafc;           /* same text color as timer */
-  border: 1px solid #334155;/* same border as timer */
-}
-/* ---- Unify chip backgrounds (label + value) so no small rectangle appears ---- */
-/* Light Blue: use the card surface for both parts */
-[data-theme="blue"] .meta-bar .meta-item .meta-label,
-[data-theme="blue"] .meta-bar .meta-item .meta-value {
-  background: var(--card);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-/* Dark: match the timer-style gray for ALL meta chips (including Final score) */
-[data-theme="dark"] .meta-bar .meta-item .meta-label,
-[data-theme="dark"] .meta-bar .meta-item .meta-value {
-  background: #1f2937;      /* same surface as the timer pill */
-  color: #f8fafc;           /* bright, readable text */
-  border: 1px solid #334155;/* visible border */
-}
-/* ================= UNIFY META CHIPS (NO INNER RECTANGLE) ================= */
-/* Scope to Perfect Days + Status only (not Final Score) */
-[data-theme="blue"] .meta-bar .meta-item:not(.score),
-[data-theme="dark"] .meta-bar .meta-item:not(.score) {
-  border-radius: 12px;
-}
-
-/* LIGHT BLUE: show as one solid surface (uses the card/background color) */
-[data-theme="blue"] .meta-bar .meta-item:not(.score) {
-  background: var(--card) !important;
-  border: 1px solid var(--border) !important;
-}
-[data-theme="blue"] .meta-bar .meta-item:not(.score) .meta-label,
-[data-theme="blue"] .meta-bar .meta-item:not(.score) .meta-value {
-  /* Make inner pieces transparent so the wrapper color shows through */
-  background: transparent !important;
-  color: var(--text) !important;
-  border: 0 !important;
-}
-
-/* DARK: make the ENTIRE chip match the timer pill */
-[data-theme="dark"] .meta-bar .meta-item:not(.score) {
-  background: #1f2937 !important;   /* timer background */
-  border: 1px solid #334155 !important; /* timer border */
-}
-[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-label,
-[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-value {
-  background: transparent !important;   /* no inner rectangle */
-  color: #f8fafc !important;            /* timer text color */
-  border: 0 !important;
-}
-/* === Remove the inner rectangle on Perfect Days + Status in BOTH themes === */
-/* We keep the wrapper color (white in Light Blue, gray in Dark) and make the
-   inner pieces transparent so the chip looks like a single surface. */
-
-[data-theme="blue"] .meta-bar .meta-item:not(.score) .meta-label,
-[data-theme="blue"] .meta-bar .meta-item:not(.score) .meta-value,
-[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-label,
-[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-value {
-  background: transparent !important;  /* kill the inner pill */
-  border: 0 !important;                /* remove inner borders */
-  box-shadow: none !important;         /* just in case */
-  padding: 0 !important;               /* rely on wrapper padding only */
-}
-
-/* Ensure the wrappers themselves stay as you set them previously */
-[data-theme="blue"] .meta-bar .meta-item:not(.score) {
-  background: var(--card) !important;  /* white chip in Light Blue */
-  border: 1px solid var(--border) !important;
-}
-
-[data-theme="dark"] .meta-bar .meta-item:not(.score) {
-  background: #1f2937 !important;      /* same as timer */
-  border: 1px solid #334155 !important;
-  color: #f8fafc;
-}
-/* Remove the meta-bar strip so the background matches the page in ALL themes */
-.meta-bar {
-  background: transparent !important;   /* override earlier var(--card) */
-  border-color: transparent !important; /* just in case a border shows */
-  box-shadow: none !important;          /* ensure no faint band remains */
-}
-/* =========================
-   Mobile timer (≤480px)
-   When playing, float it down so it's always visible.
-   ========================= */
+/* ========================= Mobile timer (≤480px) ========================= */
 @media (max-width: 480px) {
-  /* Default (not playing): keep your current top-right timer */
-  /* Playing: move the timer to the bottom-right as a floating pill */
   [data-playing="1"] .header-timer {
     position: fixed;
     right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom)); /* iOS safe area friendly */
+    bottom: calc(12px + env(safe-area-inset-bottom));
     z-index: 60;
-    transform: none;                 /* override any previous scale/translate */
-    padding: 6px 10px;               /* slightly larger tap-visible area */
+    transform: none;
+    padding: 6px 10px;
     border-radius: 14px;
-    pointer-events: none;            /* it's non-interactive */
-    box-shadow: 0 8px 20px rgba(0,0,0,.25); /* readable over content */
+    pointer-events: none;
+    box-shadow: 0 8px 20px rgba(0,0,0,.25);
   }
-
-  /* Keep the “danger” countdown readable over content on mobile too */
   [data-theme="dark"] [data-playing="1"] .header-timer.danger {
-    color: #fecaca !important;
-    border-color: #ef4444 !important;
+    color: #fecaca !important; border-color: #ef4444 !important;
   }
   [data-theme="blue"] [data-playing="1"] .header-timer.danger,
   [data-theme="light"] [data-playing="1"] .header-timer.danger {
-    color: #b91c1c !important;       /* strong red on light themes */
-    border-color: #fecaca !important;
-    background: #fff5f5 !important;
+    color: #b91c1c !important; border-color: #fecaca !important; background: #fff5f5 !important;
   }
 }
+
+/* MicroMath: gratification */
+.mm-correct-flag { margin-left: 6px; font-weight: 700; color: #10b981; }
+@keyframes mmSparkle { from { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); } to { box-shadow: 0 0 0 14px rgba(16,185,129,0); } }
+.mm-sparkle { animation: mmSparkle 0.6s ease-out; border-radius: 10px; }
