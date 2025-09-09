@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";  
 import { useMode } from "./hooks/useMode";
 import { generateLadder, generateLadderForSeed } from "./logic/generator";
 import { generateEasy, generateEasyForSeed } from "./logic/easy";
 import type { Step } from "./types";
 import "./App.css";
+import MiniStopwatch from "./components/MiniStopwatch";
+
 
 /* Stopwatch & iOS-safe input */
 import { useStopwatch } from "./hooks/useStopwatch";
@@ -191,6 +193,10 @@ function InlineResultsModal({
   );
 }
 /* ---------------------------- End modal ----------------------------------- */
+
+/* ------------------------- MiniStopwatch (new) ---------------------------- */
+
+/* ------------------------------------------------------------------------- */
 
 export default function App() {
   const [mode, setMode] = useMode();
@@ -401,6 +407,24 @@ export default function App() {
   };
   /* --------------------------------------------------------------------- */
 
+  /* ------------------- Mini stopwatch: visibility logic ------------------ */
+  const mainTimerRef = useRef<HTMLDivElement | null>(null);
+  const [isMainInView, setIsMainInView] = useState(true);
+
+  useEffect(() => {
+    const el = mainTimerRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setIsMainInView(entry.isIntersecting),
+      { root: null, threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const showMini = status === "playing" && !isMainInView;
+  /* ---------------------------------------------------------------------- */
+
   return (
     <>
       {/* Top banner (centered title, picker on far right) */}
@@ -442,6 +466,7 @@ export default function App() {
 
           <div
             className="header-timer"
+            ref={mainTimerRef}
             aria-live="polite"
             style={{ position: "absolute", right: 0, top: 0 }}
           >
@@ -449,7 +474,15 @@ export default function App() {
           </div>
         </header>
 
-        {/* Tabs + Daily toggle */}
+        {/* Floating mini stopwatch (mobile) */}
+        {showMini && (
+      <MiniStopwatch
+  ms={sw.ms}
+  onClick={() => mainTimerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+/>
+        )}
+
+        {/* Tabs + Daily button */}
         <div className="controls-row">
           <button
             onClick={() => setMode("easy")}
@@ -472,14 +505,15 @@ export default function App() {
             Hard (8 questions)
           </button>
 
-          <label className="daily-toggle">
-            <input
-              type="checkbox"
-              checked={isDaily}
-              onChange={(e) => setIsDaily(e.target.checked)}
-            />
-            <span>Daily</span>
-          </label>
+          <button
+            type="button"
+            className={`daily-btn ${isDaily ? "daily-btn--active" : ""}`}
+            aria-pressed={isDaily}
+            title="Daily: same puzzle as everyone today"
+            onClick={() => setIsDaily((d) => !d)}
+          >
+            {isDaily ? "Daily (same puzzle)" : "Practice (random)"}
+          </button>
         </div>
 
         {/* Meta bar */}
@@ -609,37 +643,22 @@ export default function App() {
           <div className="rules card">
             <h2>📘 How it works</h2>
             <ul>
-              <li>
-                Select <strong>Easy</strong> (8), <strong>Normal</strong> (8), or{" "}
-                <strong>Hard</strong> (8).
-              </li>
-              <li>
-                Press <strong>Start</strong>. You have <strong>60 seconds</strong> to answer as many as you can.
-              </li>
-              <li>
-                <strong>Hard only:</strong> before you start, you can enable <strong>Additional 15 seconds</strong>.
-                When ON, Hard runs for <strong>75 seconds</strong> instead of 60.
-              </li>
-              <li>Each answer is checked instantly.</li>
+              <li>Select <strong>Easy</strong> (8), <strong>Normal</strong> (8), or <strong>Hard</strong> (8).</li>
+              <li>Press <strong>Start</strong>. You're racing yourself. The stopwatch shows your total time to finish all 8.</li>
+              <li>Share with friends when you finish.</li>
             </ul>
 
-            <h3>📅 About Daily</h3>
+            <h3>📅 Daily</h3>
             <p className="rules-paragraph">
-              With <strong>Daily</strong> ON, everyone gets the same puzzle for that day (one play per mode).
+              Tap <strong>Daily</strong> to get the <strong>same puzzle as everyone today</strong> (one play per mode).
+              Turn it off for unlimited practice with new random puzzles.
             </p>
-            <p className="rules-paragraph">Turn it OFF for unlimited practice with new random puzzles.</p>
 
             <h3>Modes at a glance</h3>
             <ul>
-              <li>
-                <strong>Easy</strong>: whole numbers; + − × ÷.
-              </li>
-              <li>
-                <strong>Normal</strong>: same operations with slightly tougher numbers.
-              </li>
-              <li>
-                <strong>Hard</strong>: adds exponents (^) and parentheses.
-              </li>
+              <li><strong>Easy</strong>: whole numbers; + − ×.</li>
+              <li><strong>Normal</strong>: + − × ÷ with slightly tougher numbers.</li>
+              <li><strong>Hard</strong>: adds exponents (^) and parentheses.</li>
             </ul>
           </div>
         )}
