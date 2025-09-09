@@ -13,6 +13,10 @@
   --gray-50:  #F9FAFB;
   --gray-100: #F3F4F6;
   --gray-300: #D1D5DB;
+
+  /* Gold for the number chips (outline & text) */
+  --chip-gold: #B45309;  /* dark amber-700 vibe */
+  --chip-gold-weak: #FDE68A; /* optional subtle glow if ever needed */
 }
 
 * { box-sizing: border-box; }
@@ -117,13 +121,6 @@ html, body{
   color: #ffffff;
 }
 
-/* (legacy) checkbox label no longer used, safe to keep */
-.daily-toggle{
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 /* Meta bar */
 .meta-bar{
   display: flex;
@@ -201,12 +198,46 @@ html, body{
   padding: 12px;
   margin-bottom: 10px;
 }
+
+/* --- LADDER ROW WITH NUMBER CHIP COLUMN --- */
 .ladder-row{
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.ladder-prompt{ min-width: 160px; font-size: 18px; }
+.num-col{
+  width: 28px;               /* fixed column width = polished alignment */
+  display: flex;
+  justify-content: center;
+  flex: 0 0 28px;
+}
+.num-chip{
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid var(--chip-gold); /* dark gold outline */
+  background: var(--card);
+  color: var(--chip-gold);            /* dark gold number */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+/* Elevate the chip when the row is focused (not a heavy fill) */
+.ladder-row:focus-within .num-chip{
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.ladder-prompt{ 
+  min-width: 160px; 
+  font-size: 18px; 
+  flex: 1 1 auto;
+}
 .answer-input{
   padding: 6px 8px;
   border-radius: 10px;
@@ -218,59 +249,12 @@ html, body{
 .answer-input:disabled{ background: #f6f6f6; }
 .result-icon{ min-width: 24px; }
 
-/* ====== LADDER NUMBER CHIP (circled index; fixed-width column) ====== */
-.ladder-index{
-  flex: 0 0 28px;           /* fixed column width on desktop */
-  width: 28px;
-  height: 28px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--muted);
-  font-weight: 600;         /* semibold numerals */
-  font-size: 14px;
-  line-height: 1;
-  user-select: none;
-}
-@media (max-width: 480px){
-  .ladder-index{
-    flex-basis: 26px;
-    width: 26px;
-    height: 26px;
-    font-size: 13px;
-  }
-}
-
-/* Active row: subtle elevation + accent ring (no heavy fill) */
-.ladder-row:focus-within .ladder-index{
-  border-color: var(--accent);
-  /* Subtle lift; browsers that support color-mix will show a soft ring */
-  box-shadow:
-    0 2px 6px rgba(0,0,0,0.10),
-    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
-/* Dark theme tuning for the chip */
-[data-theme="dark"] .ladder-index{
-  background: #1f2937; /* slate-800 */
-  border-color: #334155; /* slate-600 */
-  color: #e5e7eb; /* slate-200 */
-}
-[data-theme="dark"] .ladder-row:focus-within .ladder-index{
-  border-color: var(--accent);
-  box-shadow:
-    0 2px 8px rgba(0,0,0,0.30),
-    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
-/* Offscreen text helper for accessibility (e.g., "Question 3") */
-.sr-only{
-  position: absolute !important;
+/* Screen-reader-only utility */
+.sr-only {
+  position: absolute;
   width: 1px; height: 1px;
   padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0,0,0,0);
+  overflow: hidden; clip: rect(0,0,1px,1px);
   white-space: nowrap; border: 0;
 }
 
@@ -504,4 +488,11 @@ body { background: var(--bg); color: var(--text); }
 /* Hide the ± controls on non-touch desktop */
 @media (hover: hover) and (pointer: fine) {
   .pm-wrap { display: none; }
+}
+
+/* --- Dark theme variants for number chips --- */
+[data-theme="dark"] .num-chip{
+  background: #1f2937;
+  border-color: #334155;  /* dark border token */
+  color: #e5e7eb;         /* readable in dark */
 }

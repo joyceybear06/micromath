@@ -4,8 +4,6 @@ import { generateLadder, generateLadderForSeed } from "./logic/generator";
 import { generateEasy, generateEasyForSeed } from "./logic/easy";
 import type { Step } from "./types";
 import "./App.css";
-import MiniStopwatch from "./components/MiniStopwatch";
-
 
 /* Stopwatch & iOS-safe input */
 import { useStopwatch } from "./hooks/useStopwatch";
@@ -194,8 +192,19 @@ function InlineResultsModal({
 }
 /* ---------------------------- End modal ----------------------------------- */
 
-/* ------------------------- MiniStopwatch (new) ---------------------------- */
-
+/* ------------------------- MiniStopwatch (existing) ----------------------- */
+function MiniStopwatch({ text, onClick }: { text: string; onClick?: () => void }) {
+  return (
+    <button
+      className="mini-stopwatch"
+      onClick={onClick}
+      aria-label="Scroll to main timer"
+      type="button"
+    >
+      {text}
+    </button>
+  );
+}
 /* ------------------------------------------------------------------------- */
 
 export default function App() {
@@ -476,13 +485,15 @@ export default function App() {
 
         {/* Floating mini stopwatch (mobile) */}
         {showMini && (
-      <MiniStopwatch
-  ms={sw.ms}
-  onClick={() => mainTimerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
-/>
+          <MiniStopwatch
+            text={`⏱ ${sw.formatted}`}
+            onClick={() =>
+              mainTimerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+            }
+          />
         )}
 
-        {/* Tabs + Daily button */}
+        {/* Tabs + Daily toggle */}
         <div className="controls-row">
           <button
             onClick={() => setMode("easy")}
@@ -508,11 +519,11 @@ export default function App() {
           <button
             type="button"
             className={`daily-btn ${isDaily ? "daily-btn--active" : ""}`}
+            onClick={() => setIsDaily((v) => !v)}
+            title="Daily = same puzzle as everyone today. Practice = random puzzles."
             aria-pressed={isDaily}
-            title="Daily: same puzzle as everyone today"
-            onClick={() => setIsDaily((d) => !d)}
           >
-            {isDaily ? "Daily (same puzzle)" : "Practice (random)"}
+            Daily
           </button>
         </div>
 
@@ -580,12 +591,19 @@ export default function App() {
 
               return (
                 <div key={i} className="ladder-row">
+                  {/* --- ACCESSIBLE NUMBER CHIP --- */}
+                  <span className="num-col" aria-hidden="true">
+                    <span className="num-chip">{i + 1}</span>
+                  </span>
+                  <span className="sr-only">Question {i + 1}</span>
+
+                  {/* Prompt (NO "1." prefix anymore) */}
                   <div className="ladder-prompt">
-                    {i + 1}.{" "}
                     {mode === "hard" ? renderPromptWithSuperscript(s.prompt) : s.prompt}
                     {!hasEqualsInPrompt ? " =" : ""}
                   </div>
 
+                  {/* Answer input */}
                   <div style={disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined}>
                     <SmartNumberInput
                       value={val}
@@ -643,22 +661,37 @@ export default function App() {
           <div className="rules card">
             <h2>📘 How it works</h2>
             <ul>
-              <li>Select <strong>Easy</strong> (8), <strong>Normal</strong> (8), or <strong>Hard</strong> (8).</li>
-              <li>Press <strong>Start</strong>. You're racing yourself. The stopwatch shows your total time to finish all 8.</li>
-              <li>Share with friends when you finish.</li>
+              <li>
+                Select <strong>Easy</strong> (8), <strong>Normal</strong> (8), or{" "}
+                <strong>Hard</strong> (8).
+              </li>
+              <li>
+                Press <strong>Start</strong>. You have <strong>60 seconds</strong> to answer as many as you can.
+              </li>
+              <li>
+                <strong>Hard only:</strong> before you start, you can enable <strong>Additional 15 seconds</strong>.
+                When ON, Hard runs for <strong>75 seconds</strong> instead of 60.
+              </li>
+              <li>Each answer is checked instantly.</li>
             </ul>
 
-            <h3>📅 Daily</h3>
+            <h3>📅 About Daily</h3>
             <p className="rules-paragraph">
-              Tap <strong>Daily</strong> to get the <strong>same puzzle as everyone today</strong> (one play per mode).
-              Turn it off for unlimited practice with new random puzzles.
+              With <strong>Daily</strong> ON, everyone gets the same puzzle for that day (one play per mode).
             </p>
+            <p className="rules-paragraph">Turn it OFF for unlimited practice with new random puzzles.</p>
 
             <h3>Modes at a glance</h3>
             <ul>
-              <li><strong>Easy</strong>: whole numbers; + − ×.</li>
-              <li><strong>Normal</strong>: + − × ÷ with slightly tougher numbers.</li>
-              <li><strong>Hard</strong>: adds exponents (^) and parentheses.</li>
+              <li>
+                <strong>Easy</strong>: whole numbers; + − × ÷.
+              </li>
+              <li>
+                <strong>Normal</strong>: same operations with slightly tougher numbers.
+              </li>
+              <li>
+                <strong>Hard</strong>: adds exponents (^) and parentheses.
+              </li>
             </ul>
           </div>
         )}
