@@ -13,10 +13,6 @@
   --gray-50:  #F9FAFB;
   --gray-100: #F3F4F6;
   --gray-300: #D1D5DB;
-
-  /* Gold for the number chips (outline & text) */
-  --chip-gold: #B45309;  /* dark amber-700 vibe */
-  --chip-gold-weak: #FDE68A; /* optional subtle glow if ever needed */
 }
 
 * { box-sizing: border-box; }
@@ -121,6 +117,13 @@ html, body{
   color: #ffffff;
 }
 
+/* (legacy) checkbox label no longer used, safe to keep */
+.daily-toggle{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* Meta bar */
 .meta-bar{
   display: flex;
@@ -198,46 +201,12 @@ html, body{
   padding: 12px;
   margin-bottom: 10px;
 }
-
-/* --- LADDER ROW WITH NUMBER CHIP COLUMN --- */
 .ladder-row{
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.num-col{
-  width: 28px;               /* fixed column width = polished alignment */
-  display: flex;
-  justify-content: center;
-  flex: 0 0 28px;
-}
-.num-chip{
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 2px solid var(--chip-gold); /* dark gold outline */
-  background: var(--card);
-  color: var(--chip-gold);            /* dark gold number */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 1;
-  user-select: none;
-}
-
-/* Elevate the chip when the row is focused (not a heavy fill) */
-.ladder-row:focus-within .num-chip{
-  border-color: var(--accent);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-}
-
-.ladder-prompt{ 
-  min-width: 160px; 
-  font-size: 18px; 
-  flex: 1 1 auto;
-}
+.ladder-prompt{ min-width: 160px; font-size: 18px; }
 .answer-input{
   padding: 6px 8px;
   border-radius: 10px;
@@ -249,13 +218,52 @@ html, body{
 .answer-input:disabled{ background: #f6f6f6; }
 .result-icon{ min-width: 24px; }
 
-/* Screen-reader-only utility */
-.sr-only {
-  position: absolute;
-  width: 1px; height: 1px;
-  padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0,0,1px,1px);
-  white-space: nowrap; border: 0;
+/* ---------- THEME-AWARE NUMBER CHIP (circled index) ---------- */
+/* structural helpers (safe even if already present) */
+.index-col{ width: 32px; display: flex; justify-content: center; }
+.index-chip{
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+}
+.ladder-row:focus-within .index-chip{
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+/* Blue (Default) */
+[data-theme="blue"] .index-chip{
+  border-color: #93c5fd;         /* blue-300 */
+  color: #1e40af;                /* blue-800 text for contrast */
+  background: rgba(59,130,246,.06); /* soft tint */
+}
+
+/* Light (lilac/pink) */
+[data-theme="light"] .index-chip{
+  border-color: #d8b4fe;         /* violet-300 */
+  color: #6d28d9;                /* violet-700 */
+  background: rgba(124,58,237,.07); /* lilac tint */
+}
+
+/* Dark (slate/ink) */
+[data-theme="dark"] .index-chip{
+  border-color: #334155;         /* slate-700 */
+  color: #e5e7eb;                /* text: zinc-200 */
+  background: #1f2937;           /* slate-800 */
+}
+[data-theme="dark"] .ladder-row:focus-within .index-chip{
+  /* crisp accent ring in dark */
+  box-shadow: 0 0 0 3px var(--accent);
 }
 
 /* Instructions */
@@ -436,12 +444,12 @@ body { background: var(--bg); color: var(--text); }
 @keyframes mmSparkle { from { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); } to { box-shadow: 0 0 0 14px rgba(16,185,129,0); } }
 .mm-sparkle { animation: mmSparkle 0.6s ease-out; border-radius: 10px; }
 
-/* Mini stopwatch (floats at bottom on mobile when header timer is off-screen) */
+/* Mini stopwatch (phones): animated show/hide + safe area */
 .mini-stopwatch {
   position: fixed;
-  bottom: 12px;
   left: 50%;
-  transform: translateX(-50%);
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 6px); /* small off-screen offset by default */
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -451,17 +459,31 @@ body { background: var(--bg); color: var(--text); }
   font-variant-numeric: tabular-nums;
   z-index: 50;
   box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+
+  /* Smooth transitions; keep mounted to avoid flicker */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
 }
-/* Dark-theme fix: use data-theme selector instead of .dark */
+
+.mini-stopwatch.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+/* Dark-theme surface tokens for the chip */
 [data-theme="dark"] .mini-stopwatch {
   background: #111827;
   color: #F9FAFB;
   border-color: #374151;
 }
+
+/* Hide on desktop */
 @media (hover: hover) and (pointer: fine) {
-  /* Hide on desktop by default */
   .mini-stopwatch { display: none; }
 }
+
 
 /* ===================== ± controls (mobile only) ===================== */
 .smart-number-wrap{
@@ -489,10 +511,144 @@ body { background: var(--bg); color: var(--text); }
 @media (hover: hover) and (pointer: fine) {
   .pm-wrap { display: none; }
 }
+/* ==== DAILY PARAGRAPH CLARITY (Light + Dark) ==== */
+.rules-paragraph--daily {
+  color: var(--text); /* Light theme = body text color (usually black) */
+}
 
-/* --- Dark theme variants for number chips --- */
-[data-theme="dark"] .num-chip{
+/* Dark theme explicit override — we cover common theme toggles */
+:root.dark .rules-paragraph--daily,
+[data-theme="dark"] .rules-paragraph--daily,
+body.dark .rules-paragraph--daily,
+html.dark .rules-paragraph--daily {
+  color: #ffffff; /* strong white for max contrast on dark */
+}
+
+/* ==== LIGHT THEME TAB READABILITY (Active state) ==== */
+/* Add these classes to your tab elements in Step 2 */
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.mode-tab {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border, #00000022);
+  background: var(--card, #fff);
+  color: var(--text, #000);
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* Light theme active state: high contrast, bold, white text on primary */
+html:not(.dark):not([data-theme="dark"]) .mode-tab[aria-selected="true"],
+html:not(.dark):not([data-theme="dark"]) .mode-tab--active {
+  background: var(--primary, #2563EB);
+  color: #ffffff;
+  border-color: var(--primary, #2563EB);
+  font-weight: 700;
+}
+
+/* Optional: make inactive tabs slightly dimmer in Light theme */
+html:not(.dark):not([data-theme="dark"]) .mode-tab[aria-selected="false"] {
+  opacity: 0.9;
+}
+/* ==== DARK THEME CONTRAST FIXES (Playing / Paused / Done) ==== */
+/* These do NOT change Light theme; they apply only when body[data-theme="dark"]. */
+body[data-theme="dark"] {
+  /* If you use design tokens, these help unify other styles, too */
+  --bg: #0b1220;        /* deep slate/navy */
+  --card: #1f2937;      /* slate-800 */
+  --border: #334155;    /* slate-700 */
+  --text: #f8fafc;      /* slate-50 */
+  --muted: #94a3b8;     /* slate-400 */
+}
+
+body[data-theme="dark"],
+body[data-theme="dark"] .app-container {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Cards, ladders, meta bars, notices */
+body[data-theme="dark"] .card,
+body[data-theme="dark"] .ladder,
+body[data-theme="dark"] .rules,
+body[data-theme="dark"] .notice,
+body[data-theme="dark"] .meta-bar {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* Prompts + labels + values */
+body[data-theme="dark"] .ladder-prompt,
+body[data-theme="dark"] .meta-label,
+body[data-theme="dark"] .meta-value,
+body[data-theme="dark"] .brand-subtitle {
+  color: var(--text);
+}
+
+/* Inputs */
+body[data-theme="dark"] .answer-input,
+body[data-theme="dark"] input.answer-input,
+body[data-theme="dark"] .answer-input input {
+  background: #111827;             /* gray-900 for inputs */
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* Buttons (base and variants) */
+body[data-theme="dark"] .btn {
   background: #1f2937;
-  border-color: #334155;  /* dark border token */
-  color: #e5e7eb;         /* readable in dark */
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+body[data-theme="dark"] .btn--outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+body[data-theme="dark"] .btn--primary {
+  background: var(--primary, #2563EB);
+  border-color: var(--primary, #2563EB);
+  color: #ffffff;
+}
+
+/* Tabs */
+body[data-theme="dark"] .tab {
+  background: #111827;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+body[data-theme="dark"] .tab--active,
+body[data-theme="dark"] .mode-tab--active {
+  background: var(--primary, #2563EB);
+  color: #ffffff;
+  border-color: var(--primary, #2563EB);
+}
+
+/* Daily button */
+body[data-theme="dark"] .daily-btn {
+  background: #111827;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+body[data-theme="dark"] .daily-btn--active {
+  background: var(--success, #16A34A);
+  border-color: var(--success, #16A34A);
+  color: #001510; /* high contrast on green */
+}
+
+/* Final score visibility */
+body[data-theme="dark"] .score-value {
+  color: #f8fafc;
+}
+
+/* Keep the daily paragraph clear white in Dark (from your earlier step) */
+body[data-theme="dark"] .rules-paragraph--daily {
+  color: #ffffff;
 }

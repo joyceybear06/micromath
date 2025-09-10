@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";  
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMode } from "./hooks/useMode";
 import { generateLadder, generateLadderForSeed } from "./logic/generator";
 import { generateEasy, generateEasyForSeed } from "./logic/easy";
@@ -58,6 +58,18 @@ function InlineResultsModal({
     () => `I just finished MicroMath — Score ${score}/${total} in ${fmtTime(timeMs)}!`,
     [score, total, timeMs]
   );
+
+  // Detect Dark by reading your existing attribute on <body>
+  const isDark =
+    typeof document !== "undefined" &&
+    (document.body.getAttribute("data-theme") === "dark" ||
+      document.body.classList.contains("dark") ||
+      document.documentElement.classList.contains("dark"));
+
+  // Panel colors (Light vs Dark)
+  const panelBg = isDark ? "#1f2937" : "#ffffff";
+  const panelBorder = isDark ? "#334155" : "#e5e7eb";
+  const panelText = isDark ? "#f8fafc" : "#111827";
 
   useEffect(() => {
     if (!open) return;
@@ -119,11 +131,12 @@ function InlineResultsModal({
         style={{
           width: "100%",
           maxWidth: 420,
-          background: "#ffffff",
+          background: panelBg,
+          color: panelText,
           borderRadius: 12,
           boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
           padding: 20,
-          border: "2px solid #e9d5ff",
+          border: `1px solid ${panelBorder}`,
         }}
       >
         <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>
@@ -152,7 +165,7 @@ function InlineResultsModal({
         </div>
 
         {!perfect && (
-          <p style={{ marginTop: 6, marginBottom: 10, color: "#374151" }}>
+          <p style={{ marginTop: 6, marginBottom: 10, color: isDark ? "#e5e7eb" : "#374151" }}>
             {message ?? "Nice effort—keep going!"}
           </p>
         )}
@@ -163,8 +176,9 @@ function InlineResultsModal({
             style={{
               padding: "10px 14px",
               borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              background: "#f8fafc",
+              border: `1px solid ${panelBorder}`,
+              background: isDark ? "#1f2937" : "#f8fafc",
+              color: panelText,
               cursor: "pointer",
               fontWeight: 600,
             }}
@@ -192,11 +206,19 @@ function InlineResultsModal({
 }
 /* ---------------------------- End modal ----------------------------------- */
 
-/* ------------------------- MiniStopwatch (existing) ----------------------- */
-function MiniStopwatch({ text, onClick }: { text: string; onClick?: () => void }) {
+/* ------------------------- MiniStopwatch (floating) ----------------------- */
+function MiniStopwatch({
+  text,
+  onClick,
+  visible,
+}: {
+  text: string;
+  onClick?: () => void;
+  visible: boolean;
+}) {
   return (
     <button
-      className="mini-stopwatch"
+      className={`mini-stopwatch ${visible ? "show" : "hide"}`}
       onClick={onClick}
       aria-label="Scroll to main timer"
       type="button"
@@ -218,7 +240,7 @@ export default function App() {
   // THEME (persisted)
   const [theme, setTheme] = useTheme();
 
-  // ensure the theme attribute is on <body> (so light palette applies globally)
+  // ensure the theme attribute is on <body> (so light/dark palettes apply globally)
   useEffect(() => {
     document.body.setAttribute("data-theme", theme);
   }, [theme]);
@@ -431,7 +453,43 @@ export default function App() {
     return () => obs.disconnect();
   }, []);
 
-  const showMini = status === "playing" && !isMainInView;
+  // Scroll direction detector with small threshold (prevents micro-flicker)
+  const [scrollDir, setScrollDir] = useState<"up" | "down">("up");
+  useEffect(() => {
+    let lastY =
+      window.scrollY ||
+      document.documentElement.scrollTop ||
+      document.body.scrollTop ||
+      0;
+    let raf = 0;
+    const THRESHOLD = 16; // px
+
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const y =
+          window.scrollY ||
+          document.documentElement.scrollTop ||
+          document.body.scrollTop ||
+          0;
+        const dy = y - lastY;
+        if (Math.abs(dy) > THRESHOLD) {
+          setScrollDir(dy > 0 ? "down" : "up");
+          lastY = y;
+        }
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  // Visible only when: playing, not paused, header timer is off-screen AND last direction wasn't down
+  const miniVisible =
+    status === "playing" && !paused && !isMainInView && scrollDir !== "down";
   /* ---------------------------------------------------------------------- */
 
   return (
@@ -483,35 +541,36 @@ export default function App() {
           </div>
         </header>
 
-        {/* Floating mini stopwatch (mobile) */}
-        {showMini && (
+        {/* Floating mini stopwatch (always mounted in Playing; animated show/hide) */}
+        {status === "playing" && (
           <MiniStopwatch
             text={`⏱ ${sw.formatted}`}
+            visible={miniVisible}
             onClick={() =>
               mainTimerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
             }
           />
         )}
 
-        {/* Tabs + Daily toggle */}
-        <div className="controls-row">
+        {/* Tabs + Daily button */}
+        <div className="controls-row mode-tabs">
           <button
             onClick={() => setMode("easy")}
-            className={`tab ${mode === "easy" ? "tab--active" : ""}`}
+            className={`tab mode-tab ${mode === "easy" ? "tab--active mode-tab--active" : ""}`}
           >
             Easy (8 questions)
           </button>
 
-          <button
+        <button
             onClick={() => setMode("normal")}
-            className={`tab ${mode === "normal" ? "tab--active" : ""}`}
+            className={`tab mode-tab ${mode === "normal" ? "tab--active mode-tab--active" : ""}`}
           >
             Normal (8 questions)
           </button>
 
           <button
             onClick={() => setMode("hard")}
-            className={`tab ${mode === "hard" ? "tab--active" : ""}`}
+            className={`tab mode-tab ${mode === "hard" ? "tab--active mode-tab--active" : ""}`}
           >
             Hard (8 questions)
           </button>
@@ -520,8 +579,7 @@ export default function App() {
             type="button"
             className={`daily-btn ${isDaily ? "daily-btn--active" : ""}`}
             onClick={() => setIsDaily((v) => !v)}
-            title="Daily = same puzzle as everyone today. Practice = random puzzles."
-            aria-pressed={isDaily}
+            title="Daily gives you the same puzzle as everyone today"
           >
             Daily
           </button>
@@ -589,21 +647,26 @@ export default function App() {
 
               const hasEqualsInPrompt = s.prompt.includes("=");
 
+              // a11y off-screen label id
+              const srId = `q${i + 1}-label`;
+
               return (
                 <div key={i} className="ladder-row">
-                  {/* --- ACCESSIBLE NUMBER CHIP --- */}
-                  <span className="num-col" aria-hidden="true">
-                    <span className="num-chip">{i + 1}</span>
-                  </span>
-                  <span className="sr-only">Question {i + 1}</span>
+                  {/* Visual-only chip */}
+                  <div className="index-col" aria-hidden="true">
+                    <span className="index-chip">{i + 1}</span>
+                  </div>
 
-                  {/* Prompt (NO "1." prefix anymore) */}
-                  <div className="ladder-prompt">
+                  {/* Off-screen label for AT users */}
+                  <span id={srId} className="sr-only">{`Question ${i + 1}`}</span>
+
+                  {/* Prompt */}
+                  <div className="ladder-prompt" aria-describedby={srId}>
                     {mode === "hard" ? renderPromptWithSuperscript(s.prompt) : s.prompt}
                     {!hasEqualsInPrompt ? " =" : ""}
                   </div>
 
-                  {/* Answer input */}
+                  {/* Input */}
                   <div style={disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined}>
                     <SmartNumberInput
                       value={val}
@@ -659,40 +722,43 @@ export default function App() {
         {/* Instructions */}
         {status === "idle" && (
           <div className="rules card">
-            <h2>📘 How it works</h2>
-            <ul>
-              <li>
-                Select <strong>Easy</strong> (8), <strong>Normal</strong> (8), or{" "}
-                <strong>Hard</strong> (8).
-              </li>
-              <li>
-                Press <strong>Start</strong>. You have <strong>60 seconds</strong> to answer as many as you can.
-              </li>
-              <li>
-                <strong>Hard only:</strong> before you start, you can enable <strong>Additional 15 seconds</strong>.
-                When ON, Hard runs for <strong>75 seconds</strong> instead of 60.
-              </li>
-              <li>Each answer is checked instantly.</li>
-            </ul>
+            <h2>Your Daily Math Dealer!</h2>
 
-            <h3>📅 About Daily</h3>
-            <p className="rules-paragraph">
-              With <strong>Daily</strong> ON, everyone gets the same puzzle for that day (one play per mode).
+            {/* description kept, without the "What it is" heading */}
+            <p>
+              MicroMath is a <strong>stopwatch-based</strong> arithmetic workout. Pick a level (8 questions),
+              press <strong>Start</strong>, and the watch begins on your first input. Press <strong>Submit</strong>
+              to stop and record your time. Goal: <strong>beat your personal best</strong>.
             </p>
-            <p className="rules-paragraph">Turn it OFF for unlimited practice with new random puzzles.</p>
 
-            <h3>Modes at a glance</h3>
+            <h3>📅 <strong>Daily button</strong></h3>
+            <p className="rules-paragraph--daily">
+              Tap <strong>Daily</strong> to play the <strong>same puzzle everyone gets today at your chosen level</strong>
+              (Easy, Normal, or Hard). Finish and <strong>share your time</strong> to compare with friends.
+            </p>
+
+            <h3>🛠️ <strong>How to use it</strong></h3>
             <ul>
-              <li>
-                <strong>Easy</strong>: whole numbers; + − × ÷.
-              </li>
-              <li>
-                <strong>Normal</strong>: same operations with slightly tougher numbers.
-              </li>
-              <li>
-                <strong>Hard</strong>: adds exponents (^) and parentheses.
-              </li>
+              <li>Start where you are: <strong>pen &amp; paper welcome</strong>.</li>
+              <li>Calculator is allowed, but try to <strong>wean off</strong>—aim for quick mental math.</li>
+              <li>Show up daily (or as often as you can) and <strong>chip away at your time</strong>.</li>
             </ul>
+
+            <h3>💡 <strong>Why use it regularly</strong></h3>
+            <p>
+              Short, consistent reps build <strong>number sense</strong>, <strong>speed</strong>, and
+              <strong> confidence</strong>. You don’t need perfect streaks—just keep nudging your
+              <strong> personal best</strong> downward.
+            </p>
+
+            <h3><strong>Modes at a glance</strong></h3>
+            <ul>
+              <li><strong>Easy:</strong> whole numbers; + / − / ×</li>
+              <li><strong>Normal:</strong> same operations + ÷, slightly tougher numbers</li>
+              <li><strong>Hard:</strong> adds exponents (^) and parentheses</li>
+            </ul>
+
+            <p><strong>Ready?</strong> Tap <strong>Start</strong>, race the clock, and share your best time.</p>
           </div>
         )}
 
