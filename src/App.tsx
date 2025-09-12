@@ -3,6 +3,7 @@ import { useMode } from "./hooks/useMode";
 import { generateLadder, generateLadderForSeed } from "./logic/generator";
 import { generateEasy, generateEasyForSeed } from "./logic/easy";
 import type { Step } from "./types";
+import ResultsShareSlot from "./components/ResultsShareSlot";
 import "./App.css";
 
 /* Stopwatch & iOS-safe input */
@@ -393,28 +394,8 @@ export default function App() {
     ? `Daily Mode: ${canPlayToday ? "Not Completed Today" : "Completed for Today"}`
     : "Practice Mode";
 
-  // Render ^ as superscript in prompts
-  const renderPromptWithSuperscript = (text: string): ReactNode => {
-    const re = /(\S+)\s*\^\s*(\S+)/g;
-    const parts: ReactNode[] = [];
-    let last = 0;
-    let k = 0;
-    for (const match of text.matchAll(re)) {
-      const idx = match.index ?? 0;
-      if (idx > last) parts.push(text.slice(last, idx));
-      const base = match[1];
-      const exp = match[2];
-      parts.push(
-        <span key={`pow-${k++}`}>
-          {base}
-          <sup>{exp}</sup>
-        </span>
-      );
-      last = idx + match[0].length;
-    }
-    if (last < text.length) parts.push(text.slice(last));
-    return <>{parts}</>;
-  };
+  // NEW: human-readable label for the Share card
+  const modeLabel = mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy";
 
   /* ---------------------- ENTER → focus next input ---------------------- */
   const handleAnswerKeyDown = (
@@ -527,8 +508,9 @@ export default function App() {
               MicroMath
             </h1>
             <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
-              Daily brain warm-up.
-            </p>
+  Your Daily Math Dealer 🙂
+</p>
+
           </div>
 
           <div
@@ -561,7 +543,7 @@ export default function App() {
             Easy (8 questions)
           </button>
 
-        <button
+          <button
             onClick={() => setMode("normal")}
             className={`tab mode-tab ${mode === "normal" ? "tab--active mode-tab--active" : ""}`}
           >
@@ -596,16 +578,26 @@ export default function App() {
             <span className="meta-label">Status</span>
             <span className="meta-value">{statusChip}</span>
           </div>
+        </div> {/* <-- close meta bar */}
 
-          {status === "done" && steps.length > 0 && (
-            <div className="meta-item score">
-              <span className="meta-label">Final score</span>
-              <span className="meta-value score-value">
-                {correctCount}/{steps.length}
-              </span>
+        {/* Results strip + Share (after any finish) */}
+        {status === "done" && (
+          <div className="results card" style={{ marginTop: 12, padding: 12 }}>
+            <div className="final-score" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="meta-label">FINAL SCORE</span>
+              <a className="meta-value">{results.score}/{results.total}</a>
             </div>
-          )}
-        </div>
+
+            <ResultsShareSlot
+              status={status}
+              modeLabel={modeLabel}
+              finalScore={results.score}
+              total={results.total}
+              elapsedMs={results.timeMs}
+              className="mt-2"
+            />
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="primary-buttons">
@@ -777,4 +769,27 @@ export default function App() {
       </main>
     </>
   );
+}
+
+// Helper: render ^ as superscript in prompts
+function renderPromptWithSuperscript(text: string): ReactNode {
+  const re = /(\S+)\s*\^\s*(\S+)/g;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let k = 0;
+  for (const match of text.matchAll(re)) {
+    const idx = match.index ?? 0;
+    if (idx > last) parts.push(text.slice(last, idx));
+    const base = match[1];
+    const exp = match[2];
+    parts.push(
+      <span key={`pow-${k++}`}>
+        {base}
+        <sup>{exp}</sup>
+      </span>
+    );
+    last = idx + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
 }

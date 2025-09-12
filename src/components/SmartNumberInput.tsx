@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useRef } from "react";
 
 type Props = {
   value: string;
@@ -15,11 +15,19 @@ type Props = {
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
 };
 
-/** Robust iOS detection, including iPadOS 13+ which identifies as "Mac" */
-const isIOS =
-  typeof navigator !== "undefined" &&
-  (/(iPad|iPhone|iPod)/i.test(navigator.userAgent || "") ||
-    (navigator.platform === "MacIntel" && (navigator as any).maxTouchPoints > 1));
+/** Robust mobile detection (touch + UA) */
+function detectMobile() {
+  if (typeof navigator === "undefined" || typeof window === "undefined") {
+    return { isIOS: false, isAndroid: false, isTouch: false };
+  }
+  const ua = navigator.userAgent || "";
+  const isIOS =
+    /(iPad|iPhone|iPod)/i.test(ua) ||
+    (navigator.platform === "MacIntel" && (navigator as any).maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+  const isTouch = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+  return { isIOS, isAndroid, isTouch };
+}
 
 const SmartNumberInput = React.forwardRef<HTMLInputElement, Props>(
   (
@@ -36,9 +44,12 @@ const SmartNumberInput = React.forwardRef<HTMLInputElement, Props>(
     },
     forwardedRef
   ) => {
-    const inputRef = React.useRef<HTMLInputElement | null>(null);
+    const { isIOS, isAndroid, isTouch } = useMemo(detectMobile, []);
+    const showPM = isTouch && (isIOS || isAndroid) && !disabled;
 
-    // Merge our local ref with the forwarded one
+    const inputRef = useRef<HTMLInputElement | null>(null);
+
+    // Merge local + forwarded ref
     const setRef = (el: HTMLInputElement | null) => {
       inputRef.current = el;
       if (typeof forwardedRef === "function") forwardedRef(el);
@@ -46,9 +57,9 @@ const SmartNumberInput = React.forwardRef<HTMLInputElement, Props>(
     };
 
     const sanitize = (raw: string) => {
-      // Normalize exotic minus and decimal comma
-      let v = raw.replace(/[–—−]/g, "-").replace(",", ".");
-      // Keep digits, optional leading '-', and optionally a single '.'
+      // Normalize weird minus + decimal comma → dot
+      let v = raw.replace(/[–—−‒]/g, "-").replace(",", ".");
+      // Keep digits, leading '-', and (optionally) one '.'
       v = v.replace(/[^0-9.\-]/g, "");
       v = v.replace(/(?!^)-/g, ""); // only one leading minus
       if (!allowDecimal) v = v.replace(/\./g, "");
@@ -60,16 +71,14 @@ const SmartNumberInput = React.forwardRef<HTMLInputElement, Props>(
       onChange(sanitize(e.target.value));
     };
 
-    const toggleSign = () => {
-      if (disabled) return;
-      const cur = (value ?? "").replace(/[–—−]/g, "-");
-      const next = cur.startsWith("-")
-        ? cur.slice(1)
-        : cur.length
-        ? `-${cur.replace(/^-/, "")}`
-        : "-";
-      onChange(next);
-      // Keep focus + move caret to end so user continues typing naturally
+    const onPaste: React.ClipboardEventHandler<HTMLInputElement> = (e) => {
+      const text = e.clipboardData.getData("text");
+      onChange(sanitize(text));
+      e.preventDefault();
+    };
+
+    // Helpers for ± controls
+    const focusToEnd = () => {
       requestAnimationFrame(() => {
         const el = inputRef.current;
         if (!el) return;
@@ -81,52 +90,48 @@ const SmartNumberInput = React.forwardRef<HTMLInputElement, Props>(
       });
     };
 
-    // Styles are inline and use your CSS variables so they auto-theme
-    const wrapStyle: React.CSSProperties = {
-      position: "relative",
-      display: "inline-block",
+    const applyPlus = () => {
+      const cur = (value ?? "").replace(/[–—−‒]/g, "-");
+      const next = cur.startsWith("-") ? cur.slice(1) : cur.replace(/^\+/, "");
+      onChange(next);
+      focusToEnd();
     };
 
-    const inputStyle: React.CSSProperties =
-      isIOS && !disabled
-        ? { paddingLeft: 34 } // make room for the little ± inside the field
-        : {};
-
-    const buttonStyle: React.CSSProperties = {
-      position: "absolute",
-      left: 6,
-      top: "50%",
-      transform: "translateY(-50%)",
-      width: 24,
-      height: 24,
-      borderRadius: 6,
-      border: "1px solid var(--border)",
-      background: "var(--card)",
-      color: "var(--text)",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      lineHeight: 1,
-      fontWeight: 700,
-      fontSize: 14,
-      cursor: "pointer",
-      userSelect: "none",
-      padding: 0,
+    const toggleMinus = () => {
+      const cur = (value ?? "").replace(/[–—−‒]/g, "-");
+      const next = cur.startsWith("-")
+        ? cur.slice(1)
+        : cur.length
+        ? `-${cur.replace(/^-/, "")}`
+        : "-";
+      onChange(next);
+      focusToEnd();
     };
 
     return (
-      <div style={wrapStyle}>
-        {/* iOS-only minus toggle; hidden elsewhere; also hide when disabled */}
-        {isIOS && !disabled && (
-          <button
-            type="button"
-            aria-label="Toggle negative sign"
-            title="Toggle negative sign"
-            onClick={toggleSign}
-            style={buttonStyle}
-          >
-            ±
-          </button>
+      <div className="smart-number-wrap">
+        {/* Touch-mobile (iOS/Android) only: small + / − buttons */}
+        {showPM && (
+          <div className="pm-wrap" aria-hidden="false">
+            <button
+              type="button"
+              className="pm-btn"
+              onClick={applyPlus}
+              aria-label="Make positive"
+              title="Make positive"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="pm-btn"
+              onClick={toggleMinus}
+              aria-label="Toggle minus"
+              title="Toggle minus"
+            >
+              −
+            </button>
+          </div>
         )}
 
         <input
@@ -140,9 +145,9 @@ const SmartNumberInput = React.forwardRef<HTMLInputElement, Props>(
           value={value}
           onChange={handleChange}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           autoComplete="off"
           enterKeyHint="done"
-          style={inputStyle}
         />
       </div>
     );

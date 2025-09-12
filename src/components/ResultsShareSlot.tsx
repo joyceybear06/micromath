@@ -1,19 +1,38 @@
 // src/components/ResultsShareSlot.tsx
 import ShareButton from "./ShareButton";
+import ShareStyleToggle from "./ShareStyleToggle";
 
 type Props = {
-  score: number;       // current score
-  total: number;       // usually 8
+  status: "idle" | "playing" | "done";
+  modeLabel: string;   // 'Easy' | 'Normal' | 'Hard'
+  finalScore: number;  // 0..8
+  total?: number;      // default 8
   elapsedMs: number;   // milliseconds
+  className?: string;
 };
 
-export default function ResultsShareSlot({ score, total, elapsedMs }: Props) {
-  const isPerfect = score === total;
-  if (!isPerfect) return null;
+export default function ResultsShareSlot({
+  status,
+  modeLabel,
+  finalScore,
+  total = 8,
+  elapsedMs,
+  className = "",
+}: Props) {
+  if (status !== "done") return null;
 
   return (
-    <div style={{ marginTop: 12 }}>
-      <ShareButton score={score} total={total} elapsedMs={elapsedMs} />
+    <div className={`mt-2 flex items-center gap-10 flex-wrap ${className}`}>
+      {/* Left: the Share button (works for any score) */}
+      <ShareButton
+        mode={modeLabel}
+        score={finalScore}
+        total={total}
+        elapsedMs={elapsedMs}
+      />
+
+      {/* Right: tiny developer-facing toggle to switch styles quickly */}
+      <ShareStyleToggle />
     </div>
   );
 }

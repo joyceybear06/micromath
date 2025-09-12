@@ -1,6 +1,6 @@
 // src/components/Timer.tsx
 import { useEffect, useRef, useState } from "react";
-import ResultsShareSlot from "./ResultsShareSlot"; // adjust path if needed
+
 
 declare global {
   interface Window {
@@ -91,11 +91,7 @@ export default function Timer() {
       <span aria-label="Stopwatch" title="Stopwatch">{fmt(elapsed)}</span>
       {/* Step 5: exactly one render line added below. 
          Pass your real score/total here when available. */}
-      <ResultsShareSlot
-        score={(window as any).__mmScore ?? 0}
-        total={(window as any).__mmTotal ?? 8}
-        elapsedMs={elapsed}
-      />
+      
     </>
   );
 }

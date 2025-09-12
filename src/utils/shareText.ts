@@ -1,28 +1,13 @@
 // src/utils/shareText.ts
-export function formatTimeMMSS(ms: number): string {
-  const totalSec = Math.max(0, Math.round(ms / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-export function getShareUrl(): string {
+export async function shareText(text: string): Promise<"shared" | "copied"> {
   try {
-    const u = new URL(window.location.href);
-    return `${u.origin}${u.pathname}`;
+    if (navigator.share) {
+      await navigator.share({ text });
+      return "shared";
+    }
   } catch {
-    return window.location.href;
+    // fall through to clipboard
   }
-}
-
-export function buildShareText(opts: {
-  score: number;
-  total: number;
-  elapsedMs: number;
-  url?: string;
-}): string {
-  const { score, total, elapsedMs, url } = opts;
-  const time = formatTimeMMSS(elapsedMs);
-  const shareUrl = url || getShareUrl();
-  return `I just finished MicroMath — Score ${score}/${total} in ${time}! ${shareUrl}`;
+  await navigator.clipboard.writeText(text);
+  return "copied";
 }
