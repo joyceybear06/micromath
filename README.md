@@ -65,5 +65,6 @@ export default tseslint.config([
       // other options...
     },
   },
+
 ])
 ```
