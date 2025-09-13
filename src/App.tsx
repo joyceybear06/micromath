@@ -754,7 +754,14 @@ export default function App() {
           </div>
         )}
 
-        <footer className="footer">© {new Date().getFullYear()} MicroMath</footer>
+        <footer className="footer">
+  © {new Date().getFullYear()} MicroMath
+  {(() => {
+    const sha = (import.meta.env.VITE_COMMIT_SHA ?? "").slice(0, 7);
+    return sha ? ` · ${sha}` : "";
+  })()}
+</footer>
+
 
         {/* Render results modal */}
         <InlineResultsModal
