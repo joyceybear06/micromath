@@ -666,3 +666,68 @@ body[data-theme="dark"] .rules-paragraph--daily {
   white-space: nowrap;
   border: 0;
 }
+/* === Header surface fix: make header blend with page background === */
+/* Keep the layout exactly the same; only remove the card-like surface. */
+
+/* Generic header rule */
+.header {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* If a more specific selector is setting the surface, override it too */
+.app-container > .header,
+main.app-container > .header {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* In case a pseudo-element paints the white panel, neutralize it */
+.header::before,
+.header::after {
+  content: none !important;
+}
+
+/* Do NOT change the timer pill; it stays as-is */
+/* =========================
+   Header surface reset (blend with theme background)
+   ========================= */
+
+/* 1) Kill any "card" background/gradient/border that a global rule applies
+      to direct children of .app-container */
+.app-container > .header,
+.app-container > header.header {
+  /* Wipe all background layers so the page background shows through */
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+
+  /* Remove the card edge */
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* 2) Some theme setups paint via pseudo-elements.
+      Neutralize those if present. */
+.app-container > .header::before,
+.app-container > .header::after,
+header.header::before,
+header.header::after {
+  content: none !important;
+  background: none !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* 3) Ensure the inner title container never introduces a white panel.
+      (Your header has a single <div> wrapping <h1> + subtitle.) */
+.app-container > .header > div:first-child {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
