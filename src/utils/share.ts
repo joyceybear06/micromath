@@ -6,7 +6,11 @@ export type ShareOpts = {
   mode?: string;             // e.g., "Easy" | "Normal" | "Hard"
   score: number;
   total: number;
-  ms: number;                // elapsed milliseconds
+
+  // Support BOTH names so existing call sites keep working:
+  ms?: number;               // preferred
+  elapsedMs?: number;        // alias (back-compat)
+
   includeLink?: boolean;     // default true
   url?: string;              // defaults to window.location.origin if available
   extra?: string;            // e.g., "🔥 Streak 7 · ❄️ 1"
@@ -28,7 +32,11 @@ function bar(score: number, total: number) {
 
 export function buildShareText(opts: ShareOpts) {
   const app = opts.appName ?? "MicroMath";
-  const time = fmtTime(opts.ms);
+
+  // 🔑 normalize elapsed time: prefer ms, fall back to elapsedMs
+  const elapsed = (opts.ms ?? opts.elapsedMs ?? 0);
+  const time = fmtTime(elapsed);
+
   const modeLabel = opts.mode ? ` — ${opts.mode}` : "";
   const headline = `${app}${modeLabel} • ${opts.score}/${opts.total} in ${time}`;
 
@@ -60,13 +68,12 @@ export async function shareResult(opts: ShareOpts) {
       await navigator.clipboard.writeText(text);
       alert("Copied to clipboard!");
     } else {
-      // very old browsers
       prompt("Copy your results:", text);
     }
   } catch {
-    // user canceled share — ignore
+    /* user canceled share — ignore */
   }
 }
 
-// ---- Back-compat export ----
+// Back-compat alias so existing imports keep working
 export { buildShareText as buildShare };
