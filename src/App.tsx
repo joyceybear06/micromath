@@ -14,13 +14,13 @@ import { useTheme, type Theme } from "./hooks/useTheme";
 /* ✅ Streaks helper */
 import { updateStreakOnFinish } from "./utils/streaks";
 
-/* ✅ Small pill chip that shows “🔥 Streak N · ❄️ 0|1” */
+/* ✅ Small pill chip that shows “🔥 Streak N · ❄️ 0|1” (non-dismissible now) */
 import StreakPill from "./components/StreakPill";
 
-/* ✅ Web Share helper (this is the missing line) */
+/* ✅ Web Share helper */
 import { shareResult } from "./utils/share";
 
-/* NEW: sticky header wrapper */
+/* Sticky header wrapper */
 import StickyHeader from "./components/StickyHeader";
 
 type Status = "idle" | "playing" | "done";
@@ -67,16 +67,12 @@ function InlineResultsModal({
   onClose,
   message,
 }: ResultsProps) {
-
-
-  // Detect Dark by reading your existing attribute on <body>
   const isDark =
     typeof document !== "undefined" &&
     (document.body.getAttribute("data-theme") === "dark" ||
       document.body.classList.contains("dark") ||
       document.documentElement.classList.contains("dark"));
 
-  // Panel colors (Light vs Dark)
   const panelBg = isDark ? "#1f2937" : "#ffffff";
   const panelBorder = isDark ? "#334155" : "#e5e7eb";
   const panelText = isDark ? "#f8fafc" : "#111827";
@@ -96,30 +92,24 @@ function InlineResultsModal({
           origin: { y: 0.6 },
           scalar: perfect ? 1.1 : 0.9,
         });
-      } catch {
-        /* optional */
-      }
+      } catch {}
     })();
     return () => {
       canceled = true;
     };
   }, [open, perfect]);
 
-const onShare = async () => {
-  const url = typeof window !== "undefined" ? window.location.origin : "";
-  await shareResult({
-    appName: "MicroMath",
-    // You can pass your mode label here if you have it in scope; otherwise omit it
-    // modeLabel,
-    score,
-    total,
-    elapsedMs: timeMs,
-    // extra: `🔥 Streak ${s.streak} · ❄️ ${s.freeze}`, // (optional when you wire streaks)
-    url,
-    title: "MicroMath",
-  });
-};
-
+  const onShare = async () => {
+    const url = typeof window !== "undefined" ? window.location.origin : "";
+    await shareResult({
+      appName: "MicroMath",
+      score,
+      total,
+      elapsedMs: timeMs,
+      url,
+      title: "MicroMath",
+    });
+  };
 
   if (!open) return null;
 
@@ -251,7 +241,6 @@ export default function App() {
   // THEME (persisted)
   const [theme, setTheme] = useTheme();
 
-  // ensure the theme attribute is on <body> (so light/dark palettes apply globally)
   useEffect(() => {
     document.body.setAttribute("data-theme", theme);
   }, [theme]);
@@ -314,36 +303,40 @@ export default function App() {
     sw.reset();
   };
 
-const finish = () => {
-  setStatus("done");
-  if (isDaily) localStorage.setItem(playedKey, "1");
+  const finish = () => {
+    setStatus("done");
+    if (isDaily) localStorage.setItem(playedKey, "1");
 
-  sw.stop();
+    sw.stop();
 
-  const score = steps.length
-    ? steps.reduce((acc, s, i) => acc + (Number(answers[i]) === s.answer ? 1 : 0), 0)
-    : 0;
-  const perfect = steps.length > 0 && score === steps.length;
+    const score = steps.length
+      ? steps.reduce((acc, s, i) => acc + (Number(answers[i]) === s.answer ? 1 : 0), 0)
+      : 0;
+    const perfect = steps.length > 0 && score === steps.length;
 
-  /* ✅ Update streak + freeze state (localStorage) */
-  updateStreakOnFinish(score, steps.length || 8);
+    /* ✅ Update streak + freeze in localStorage */
+    updateStreakOnFinish(score, steps.length || 8);
 
-  const pickEnc = () => {
-    if (perfect) return undefined;
-    const len = ENCOURAGEMENTS.length;
-    return ENCOURAGEMENTS[Math.floor(Math.random() * len)];
+    /* Let StreakPill know its values changed (same-tab update) */
+    try {
+      window.dispatchEvent(new Event("streak:changed"));
+    } catch {}
+
+    const pickEnc = () => {
+      if (perfect) return undefined;
+      const len = ENCOURAGEMENTS.length;
+      return ENCOURAGEMENTS[Math.floor(Math.random() * len)];
+    };
+
+    setResults({
+      open: true,
+      timeMs: sw.ms,
+      score,
+      total: steps.length || 8,
+      perfect,
+      message: pickEnc(),
+    });
   };
-
-  setResults({
-    open: true,
-    timeMs: sw.ms,
-    score,
-    total: steps.length || 8,
-    perfect,
-    message: pickEnc(),
-  });
-};
-
 
   const reset = () => {
     setStatus("idle");
@@ -353,7 +346,7 @@ const finish = () => {
     sw.reset();
   };
 
-  // Let CSS know when a round is running (for mobile timer positioning)
+  // CSS hint for mobile timer positioning
   useEffect(() => {
     const v = status === "playing" ? "1" : "0";
     document.body.setAttribute("data-playing", v);
@@ -362,7 +355,7 @@ const finish = () => {
     };
   }, [status]);
 
-  // Global keydown listener to start stopwatch on FIRST keystroke
+  // Start stopwatch on FIRST keystroke in an answer field
   useEffect(() => {
     if (status !== "playing" || paused || sw.running) return;
 
@@ -383,7 +376,7 @@ const finish = () => {
     return () => window.removeEventListener("keydown", handler, true);
   }, [status, paused, sw]);
 
-  // Scoring ------------------------------------------------------------------
+  // Scoring
   const correctCount = useMemo(
     () =>
       steps.reduce((acc, s, i) => {
@@ -402,16 +395,9 @@ const finish = () => {
     }
   }, [status, correctCount, steps.length]);
 
-  // Meta values --------------------------------------------------------------
   const perfectDays = Number(localStorage.getItem("perfectDays") || "0");
-  const statusChip = isDaily
-    ? `Daily Mode: ${canPlayToday ? "Not Completed Today" : "Completed for Today"}`
-    : "Practice Mode";
 
-  // NEW: human-readable label for the Share card
-  const modeLabel = mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy";
-
-  /* ---------------------- ENTER → focus next input ---------------------- */
+  /* ENTER → focus next input */
   const handleAnswerKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
     idx: number
@@ -431,9 +417,8 @@ const finish = () => {
       requestAnimationFrame(() => next.focus());
     }
   };
-  /* --------------------------------------------------------------------- */
 
-  /* ------------------- Mini stopwatch: visibility logic ------------------ */
+  /* Mini stopwatch: visibility logic */
   const mainTimerRef = useRef<HTMLDivElement | null>(null);
   const [isMainInView, setIsMainInView] = useState(true);
 
@@ -448,7 +433,6 @@ const finish = () => {
     return () => obs.disconnect();
   }, []);
 
-  // Scroll direction detector with small threshold (prevents micro-flicker)
   const [scrollDir, setScrollDir] = useState<"up" | "down">("up");
   useEffect(() => {
     let lastY =
@@ -482,14 +466,12 @@ const finish = () => {
     };
   }, []);
 
-  // Visible only when: playing, not paused, header timer is off-screen AND last direction wasn't down
   const miniVisible =
     status === "playing" && !paused && !isMainInView && scrollDir !== "down";
-  /* ---------------------------------------------------------------------- */
 
   return (
     <>
-      {/* Top banner (centered title, picker on far right) */}
+      {/* Top banner */}
       <div className="top-banner">
         <div className="top-banner-title">⏱ MicroMath </div>
 
@@ -506,45 +488,39 @@ const finish = () => {
       </div>
 
       <main className="app-container">
-        {/* Header: title + subtitle centered; timer on the right */}
+        {/* Header */}
         <StickyHeader>
-<header
-  className="header"
-  style={{
-    position: "relative",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "flex-start",
-    marginBottom: 24,
-  }}
->
-  <div style={{ textAlign: "center" }}>
-    <h1 className="brand" style={{ position: "static", transform: "none", marginBottom: 8 }}>
-      MicroMath
-    </h1>
-    <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
-      Your Daily Math Dealer 🙂
-    </p>
-  </div>
+          <header
+            className="header"
+            style={{
+              position: "relative",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              marginBottom: 24,
+            }}
+          >
+            <div style={{ textAlign: "center" }}>
+              <h1 className="brand" style={{ position: "static", transform: "none", marginBottom: 8 }}>
+                MicroMath
+              </h1>
+              <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
+                Your Daily Math Dealer 🙂
+              </p>
+            </div>
 
-  <div
-    className="header-timer"
-    ref={mainTimerRef}
-    aria-live="polite"
-    style={{ position: "absolute", right: 0, top: 0 }}
-  >
-    ⏱ {sw.formatted}
-  </div>
-</header>
-
-/* ✅ Streak pill appears immediately under the header */
-<div style={{ marginTop: 8 }}>
-  <StreakPill />
-</div>
-
+            <div
+              className="header-timer"
+              ref={mainTimerRef}
+              aria-live="polite"
+              style={{ position: "absolute", right: 0, top: 0 }}
+            >
+              ⏱ {sw.formatted}
+            </div>
+          </header>
         </StickyHeader>
 
-        {/* Floating mini stopwatch (always mounted in Playing; animated show/hide) */}
+        {/* Floating mini stopwatch (phones) */}
         {status === "playing" && (
           <MiniStopwatch
             text={`⏱ ${sw.formatted}`}
@@ -555,7 +531,7 @@ const finish = () => {
           />
         )}
 
-        {/* Tabs + Daily button */}
+        {/* Tabs + Daily (Daily now styled exactly like the tabs) */}
         <div className="controls-row mode-tabs">
           <button
             onClick={() => setMode("easy")}
@@ -578,40 +554,42 @@ const finish = () => {
             Hard (8 questions)
           </button>
 
+          {/* ⬇️ Daily uses the SAME tab classes, so identical size/flow */}
           <button
             type="button"
-            className={`daily-btn ${isDaily ? "daily-btn--active" : ""}`}
+            className={`tab mode-tab ${isDaily ? "tab--active mode-tab--active" : ""}`}
             onClick={() => setIsDaily((v) => !v)}
+            aria-pressed={isDaily}
             title="Daily gives you the same puzzle as everyone today"
           >
             Daily
           </button>
         </div>
 
-        {/* Meta bar */}
+        {/* Meta bar (STATUS removed; Streak pill not dismissible) */}
         <div className="meta-bar">
           <div className="meta-item">
             <span className="meta-label">Perfect days</span>
             <span className="meta-value">{perfectDays}</span>
           </div>
 
-          <div className="meta-item">
-            <span className="meta-label">Status</span>
-            <span className="meta-value">{statusChip}</span>
-          </div>
-        </div> {/* <-- close meta bar */}
+          {/* No “Status” chip anymore */}
+          <StreakPill />
+        </div>
 
         {/* Results strip + Share (after any finish) */}
         {status === "done" && (
           <div className="results card" style={{ marginTop: 12, padding: 12 }}>
             <div className="final-score" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="meta-label">FINAL SCORE</span>
-              <a className="meta-value">{results.score}/{results.total}</a>
+              <a className="meta-value">
+                {results.score}/{results.total}
+              </a>
             </div>
 
             <ResultsShareSlot
               status={status}
-              modeLabel={modeLabel}
+              modeLabel={mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
               finalScore={results.score}
               total={results.total}
               elapsedMs={results.timeMs}
@@ -684,9 +662,7 @@ const finish = () => {
                     <SmartNumberInput
                       value={val}
                       onChange={(raw) => {
-                        // Start stopwatch on first character typed
                         if (status === "playing" && !paused && !sw.running) sw.start();
-
                         const next = answers.slice();
                         next[i] = raw;
                         setAnswers(next);
@@ -716,12 +692,15 @@ const finish = () => {
               justifyContent: "flex-start",
             }}
           >
-            <button onClick={finish} className="btn btn--outline">Submit</button>
+            <button onClick={finish} className="btn btn--outline">
+              Submit
+            </button>
             <button
               onClick={() => {
                 setPaused((p) => {
                   const next = !p;
-                  if (next) sw.stop(); else sw.start();
+                  if (next) sw.stop();
+                  else sw.start();
                   return next;
                 });
               }}
@@ -731,73 +710,64 @@ const finish = () => {
             </button>
           </div>
         )}
-        {/* Big + / − pad (Android only) */}
-
-
 
         {/* Instructions */}
         {status === "idle" && (
-  <div
-    className="rules card"
-    style={{
-      marginTop: 14,
-      padding: 14,
-      color: "#000",          // all body text black (simple, clean)
-      lineHeight: 1.6,
-      fontWeight: 400,        // normal weight everywhere by default
-    }}
-  >
-    {/* Intro (plain body text, no bold) */}
-    <p style={{ margin: "0 0 10px" }}>
-      MicroMath is a stopwatch-based arithmetic workout. Pick a level (8 questions), press
-      Start, and the watch begins on your first input. Press Submit to stop and record your time.
-      Goal: beat your personal best. Share your results with a friend.
-    </p>
+          <div
+            className="rules card"
+            style={{
+              marginTop: 14,
+              padding: 14,
+              color: "#000",
+              lineHeight: 1.6,
+              fontWeight: 400,
+            }}
+          >
+            <p style={{ margin: "0 0 10px" }}>
+              MicroMath is a stopwatch-based arithmetic workout. Pick a level (8 questions),
+              press Start, and the watch begins on your first input. Press Submit to stop and
+              record your time. Goal: beat your personal best. Share your results with a friend.
+            </p>
 
-    {/* Daily button (bold heading ONLY) */}
-    <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
-      <strong>Daily Button</strong>
-    </h3>
-    <p style={{ margin: "0 0 10px" }}>
-      Tap Daily to play the same puzzle everyone gets today at your chosen level (Easy, Normal, or Hard).
-      Finish and share your time to compare with friends.
-    </p>
+            <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
+              <strong>Daily Button</strong>
+            </h3>
+            <p style={{ margin: "0 0 10px" }}>
+              Tap Daily to play the same puzzle everyone gets today at your chosen level (Easy,
+              Normal, or Hard). Finish and share your time to compare with friends.
+            </p>
 
-    {/* How to use (bold heading ONLY) */}
-    <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
-      <strong>How to use</strong>
-    </h3>
-    <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
-      <li>Start where you are: pen &amp; paper welcome.</li>
-      <li>Calculator is allowed, but try to wean off—aim for quick mental math.</li>
-      <li>Show up daily (or as often as you can) and chip away at your time.</li>
-    </ul>
+            <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
+              <strong>How to use</strong>
+            </h3>
+            <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
+              <li>Start where you are: pen &amp; paper welcome.</li>
+              <li>Calculator is allowed, but try to wean off—aim for quick mental math.</li>
+              <li>Show up daily (or as often as you can) and chip away at your time.</li>
+            </ul>
 
-    {/* Why to use it regularly (bold heading ONLY) */}
-    <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
-      <strong>Why to use it regularly</strong>
-    </h3>
-    <p style={{ margin: "0 0 10px" }}>
-      Short, consistent reps build number sense, speed, and confidence. You don’t need perfect streaks, just keep
-      nudging your personal best downward.
-    </p>
+            <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
+              <strong>Why to use it regularly</strong>
+            </h3>
+            <p style={{ margin: "0 0 10px" }}>
+              Short, consistent reps build number sense, speed, and confidence. You don’t need
+              perfect streaks, just keep nudging your personal best downward.
+            </p>
 
-    {/* Modes at a glance (bold heading ONLY) */}
-    <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
-      <strong>Modes at a glance</strong>
-    </h3>
-    <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
-      <li>Easy: whole numbers; + / − / ×</li>
-      <li>Normal: + / − / × / ÷, slightly tougher numbers</li>
-      <li>Hard: adds exponents and parentheses</li>
-    </ul>
+            <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
+              <strong>Modes at a glance</strong>
+            </h3>
+            <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
+              <li>Easy: whole numbers; + / − / ×</li>
+              <li>Normal: + / − / × / ÷, slightly tougher numbers</li>
+              <li>Hard: adds exponents and parentheses</li>
+            </ul>
 
-    {/* Closing line (plain) */}
-    <p style={{ margin: 0 }}>
-      Ready? Tap Start, race the clock, and share your best time.
-    </p>
-  </div>
-)}
+            <p style={{ margin: 0 }}>
+              Ready? Tap Start, race the clock, and share your best time.
+            </p>
+          </div>
+        )}
 
         <footer className="footer">
           © {new Date().getFullYear()} MicroMath
