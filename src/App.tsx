@@ -1,16 +1,24 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"; 
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMode } from "./hooks/useMode";
 import { generateLadder, generateLadderForSeed } from "./logic/generator";
 import { generateEasy, generateEasyForSeed } from "./logic/easy";
 import type { Step } from "./types";
 import ResultsShareSlot from "./components/ResultsShareSlot";
-import { shareResult } from "./utils/share";
 import "./App.css";
 
 /* Stopwatch & iOS-safe input */
 import { useStopwatch } from "./hooks/useStopwatch";
 import SmartNumberInput from "./components/SmartNumberInput";
 import { useTheme, type Theme } from "./hooks/useTheme";
+
+/* ✅ Streaks helper */
+import { updateStreakOnFinish } from "./utils/streaks";
+
+/* ✅ Small pill chip that shows “🔥 Streak N · ❄️ 0|1” */
+import StreakPill from "./components/StreakPill";
+
+/* ✅ Web Share helper (this is the missing line) */
+import { shareResult } from "./utils/share";
 
 /* NEW: sticky header wrapper */
 import StickyHeader from "./components/StickyHeader";
@@ -306,32 +314,36 @@ export default function App() {
     sw.reset();
   };
 
-  const finish = () => {
-    setStatus("done");
-    if (isDaily) localStorage.setItem(playedKey, "1");
+const finish = () => {
+  setStatus("done");
+  if (isDaily) localStorage.setItem(playedKey, "1");
 
-    sw.stop();
+  sw.stop();
 
-    const score = steps.length
-      ? steps.reduce((acc, s, i) => acc + (Number(answers[i]) === s.answer ? 1 : 0), 0)
-      : 0;
-    const perfect = steps.length > 0 && score === steps.length;
+  const score = steps.length
+    ? steps.reduce((acc, s, i) => acc + (Number(answers[i]) === s.answer ? 1 : 0), 0)
+    : 0;
+  const perfect = steps.length > 0 && score === steps.length;
 
-    const pickEnc = () => {
-      if (perfect) return undefined;
-      const len = ENCOURAGEMENTS.length;
-      return ENCOURAGEMENTS[Math.floor(Math.random() * len)];
-    };
+  /* ✅ Update streak + freeze state (localStorage) */
+  updateStreakOnFinish(score, steps.length || 8);
 
-    setResults({
-      open: true,
-      timeMs: sw.ms,
-      score,
-      total: steps.length || 8,
-      perfect,
-      message: pickEnc(),
-    });
+  const pickEnc = () => {
+    if (perfect) return undefined;
+    const len = ENCOURAGEMENTS.length;
+    return ENCOURAGEMENTS[Math.floor(Math.random() * len)];
   };
+
+  setResults({
+    open: true,
+    timeMs: sw.ms,
+    score,
+    total: steps.length || 8,
+    perfect,
+    message: pickEnc(),
+  });
+};
+
 
   const reset = () => {
     setStatus("idle");
@@ -496,34 +508,40 @@ export default function App() {
       <main className="app-container">
         {/* Header: title + subtitle centered; timer on the right */}
         <StickyHeader>
-          <header
-            className="header"
-            style={{
-              position: "relative",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "flex-start",
-              marginBottom: 24,
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <h1 className="brand" style={{ position: "static", transform: "none", marginBottom: 8 }}>
-                MicroMath
-              </h1>
-              <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
-                Your Daily Math Dealer 🙂
-              </p>
-            </div>
+<header
+  className="header"
+  style={{
+    position: "relative",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "flex-start",
+    marginBottom: 24,
+  }}
+>
+  <div style={{ textAlign: "center" }}>
+    <h1 className="brand" style={{ position: "static", transform: "none", marginBottom: 8 }}>
+      MicroMath
+    </h1>
+    <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
+      Your Daily Math Dealer 🙂
+    </p>
+  </div>
 
-            <div
-              className="header-timer"
-              ref={mainTimerRef}
-              aria-live="polite"
-              style={{ position: "absolute", right: 0, top: 0 }}
-            >
-              ⏱ {sw.formatted}
-            </div>
-          </header>
+  <div
+    className="header-timer"
+    ref={mainTimerRef}
+    aria-live="polite"
+    style={{ position: "absolute", right: 0, top: 0 }}
+  >
+    ⏱ {sw.formatted}
+  </div>
+</header>
+
+/* ✅ Streak pill appears immediately under the header */
+<div style={{ marginTop: 8 }}>
+  <StreakPill />
+</div>
+
         </StickyHeader>
 
         {/* Floating mini stopwatch (always mounted in Playing; animated show/hide) */}
