@@ -11,10 +11,10 @@ export type ShareOpts = {
   ms?: number;               // preferred
   elapsedMs?: number;        // alias (back-compat)
 
-  includeLink?: boolean;     // default true
+  includeLink?: boolean;     // default true (used only for navigator.share URL, not in text)
   url?: string;              // defaults to window.location.origin if available
-  extra?: string;            // unused in this format but kept for compatibility
-  style?: "A" | "B";         // ignored now; kept for compatibility
+  extra?: string;            // kept for compatibility — unused in the text now
+  style?: "A" | "B";         // kept for compatibility — ignored in the text now
 };
 
 function fmtTime(ms: number) {
@@ -24,7 +24,7 @@ function fmtTime(ms: number) {
   return `${m}:${ss}`;
 }
 
-// Build a bar with blue squares = correct count, white squares = the rest.
+// Blue squares = correct answers; white squares = remaining
 function squares(score: number, total: number) {
   const filled = "🟦".repeat(Math.max(0, Math.min(score, total)));
   const empty = "⬜️".repeat(Math.max(0, total - score));
@@ -45,17 +45,15 @@ export function buildShareText(opts: ShareOpts) {
   // Line 2
   const bar = squares(opts.score, opts.total);
 
-  // Line 3 (link)
-  const link = (opts.includeLink ?? true)
-    ? `\nPlay: ${opts.url ?? (typeof window !== "undefined" ? window.location.origin : "")}`
-    : "";
-
-  return `${header}\n${bar}${link}`;
+  // ⛔ No "Play: URL" line — text is exactly two lines now
+  return `${header}\n${bar}`;
 }
 
 // Web Share API with clipboard fallback
 export async function shareResult(opts: ShareOpts) {
   const text = buildShareText(opts);
+
+  // We still attach the URL via the native share field (not in the text body)
   const shareUrl = (opts.includeLink ?? true)
     ? (opts.url ?? (typeof window !== "undefined" ? window.location.origin : ""))
     : undefined;
