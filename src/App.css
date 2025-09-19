@@ -1,283 +1,646 @@
-/* ====================== CLEAR BLUE (true black text) ====================== */
-:root{
+/* === EDITING RULES (no visual change) =======================================
+1) THEME TOKENS live in :root and [data-theme="*"] only.
+2) COMPONENT STYLES live in their named section (Header, Tabs, Ladder, Calendar).
+3) STATE MODIFIERS use BEM-ish: .btn--primary, .tab--active, etc.
+4) RESPONSIVE rules live only in the "RESPONSIVE DESIGN" section.
+5) NO BOTTOM-DUMPING: always place new rules in the correct section.
+6) ASCII ONLY: straight quotes (") and hyphens (-). No curly quotes/dashes.
+============================================================================= */
+
+/* ====================== THEME SYSTEM ====================== */
+:root {
+  /* Base colors */
   --primary: #2563EB;
   --primary-50: #EAF2FF;
   --success: #16A34A;
-  --coral:   #ff7875;
+  --coral: #ff7875;
 
-  --bg:      #FAFBFF;
-  --card:    #FFFFFF;
-  --border:  #C9DBFF55;
-  --text:    #000000;
-
-  --gray-50:  #F9FAFB;
+  /* Gray scale */
+  --gray-50: #F9FAFB;
   --gray-100: #F3F4F6;
   --gray-300: #D1D5DB;
+
+  /* Theme tokens - Blue (default) */
+  --bg: #f7faff;
+  --text: #0f172a;
+  --card: #ffffff;
+  --border: #dbeafe;
+  --accent: #3b82f6;
+  --muted: #475569;
+  --banner-bg: #e8f1ff;
+  --panel: #ffffff;
+  --on-accent: #ffffff;
+  --muted-border: #dcdfe3;
+  --shadow: 0 6px 16px rgba(2, 6, 23, 0.08);
 }
 
+[data-theme="light"] {
+  --bg: #fff7fe;
+  --text: #1f2937;
+  --border: #e9d5ff;
+  --accent: #7c3aed;
+  --muted: #6b7280;
+  --banner-bg: #f6f0ff;
+  --muted-border: #e9d5ff;
+}
+
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --text: #f8fafc;
+  --card: #1f2937;
+  --panel: #111827;
+  --border: #334155;
+  --accent: #60a5fa;
+  --muted: #94a3b8;
+  --banner-bg: #0f172a;
+  --on-accent: #0b1220;
+  --muted-border: #243245;
+}
+
+/* ====================== BASE RESET ====================== */
 * { box-sizing: border-box; }
 
-html, body{
+html, body {
   margin: 0;
   overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue",
-    Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji", sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Banner */
-.top-banner{
-  width: 100%;
-  padding: 10px 16px;
-  text-align: center;
-  font-weight: 600;
-  color: #000;
-  background: linear-gradient(90deg, #DFE9FF, #F3F7FF);
-  border-bottom: 1px solid var(--border);
+html, body, #root { height: 100%; }
+
+/* Theme-specific backgrounds */
+body[data-theme="light"] {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #ffe4f4 0%, transparent 60%),
+    radial-gradient(1000px 500px at 90% -10%, #e9d5ff 0%, transparent 55%),
+    var(--bg);
 }
 
-/* App container */
-.app-container{
-  max-width: 860px;
+/* ====================== LAYOUT CONTAINERS ====================== */
+.app-container {
+  max-width: 880px;
   margin: 12px auto 40px;
   padding: 0 16px;
 }
 
-/* Header */
-.header{
+/* ====================== TOP BANNER ====================== */
+.top-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  height: 44px;
+  padding: 8px 12px;
+  text-align: center;
+
+  /* Fallback */
+  background: var(--panel);
+  /* Modern */
+  background: color-mix(in oklab, var(--panel) 85%, transparent);
+
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--muted-border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+}
+
+.top-banner-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.theme-picker {
+  position: absolute;
+  left: 12px;
+  top: 6px;
+  height: 32px;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* ====================== HEADER ====================== */
+.header {
+  position: relative;
+  min-height: 108px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 12px;
-  padding-top: 6px;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
 }
-.brand{
+
+.header .brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: max-content;
   margin: 0;
-  color: var(--primary);
+  color: var(--accent);
   font-weight: 800;
-  font-size: clamp(2rem, 1.4rem + 1.4vw, 2.6rem);
+  font-size: clamp(28px, 6.2vw, 44px);
+  letter-spacing: 0.2px;
 }
+
 .brand-subtitle {
+  display: block;
+  min-height: 22px;
   margin: 4px 0 0;
-  font-size: 0.95rem;
+  font-size: 15px;
   line-height: 1.3;
-  color: #6b7280; /* neutral; themed below */
+  color: var(--muted);
+  will-change: auto;
 }
-.header-timer{
+
+.header-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   font-size: clamp(1.25rem, 1.05rem + 0.8vw, 1.5rem);
-  background: #fff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 6px 10px;
+  box-shadow: var(--shadow);
 }
-.header-timer.danger{
+
+.header-timer.danger {
   color: #dc2626 !important;
   border-color: #fca5a5 !important;
   background: #fff5f5 !important;
 }
 
-/* Tabs + Daily */
-.controls-row{
+.timer-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transform: translateY(1px);
+}
+
+/* ====================== CONTROLS & TABS ====================== */
+.controls-row {
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
   margin: 10px 0 8px;
 }
-.tab{
-  padding: 8px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--gray-300);
-  background: var(--card);
-  cursor: pointer;
-}
-.tab--active{
-  border: 2px solid var(--primary);
-  background: var(--primary-50);
+
+.controls-row.mode-tabs {
+  justify-content: center;
+  margin: 12px 0 10px;
 }
 
-/* NEW: Daily toggle becomes a simple button */
-.daily-btn{
+.tab, .mode-tab {
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
   cursor: pointer;
+  font-weight: 600;
+  transition: transform 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+/* Elements that have BOTH classes — keep if you use that pattern */
+.tab.mode-tab {
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
   font-weight: 700;
 }
-.daily-btn:active{ transform: translateY(1px); }
-.daily-btn--active{
-  background: #111827; /* always black, as requested */
-  border-color: #111827;
+
+.tab.mode-tab:hover { transform: translateY(-1px); }
+
+/* Active states — BEM double-hyphen */
+.tab--active, .mode-tab--active {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.tab--active.mode-tab--active {
+  border-color: transparent;
+}
+
+.daily-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 7px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+
+  /* Fallback */
+  background: var(--card);
+  /* Modern */
+  background: color-mix(in oklab, var(--text) 12%, var(--card) 88%);
+
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.daily-btn--active {
+  background: var(--success);
+  border-color: var(--success);
   color: #ffffff;
 }
 
-/* (legacy) checkbox label no longer used, safe to keep */
-.daily-toggle{
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* ====================== BUTTONS ====================== */
+.btn {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease;
 }
 
-/* Meta bar */
-.meta-bar{
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin: 6px 0 12px;
+.btn:active { transform: translateY(1px); }
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid transparent;
+  box-shadow: var(--shadow);
 }
-.meta-item{
+
+.btn--primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.btn--outline {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn--outline:hover { transform: translateY(-1px); }
+
+.btn--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reset-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  background: #fff;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: var(--gray-100);
+  color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 12px;
-}
-.meta-label{
-  color: #334155;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-.meta-value{
-  font-weight: 700;
-  margin-left: 4px;
-}
-.meta-item.score .score-value{
-  color: var(--primary);
-  font-weight: 800;
-}
-
-/* Buttons */
-.primary-buttons{
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 6px 0 12px;
-}
-.btn{
-  padding: 10px 14px;
-  border-radius: 12px;
   cursor: pointer;
-  border: 1px solid var(--gray-300);
-  background: var(--card);
-  transition: transform .02s ease-in-out, background .15s;
 }
-.btn:active{ transform: translateY(1px); }
-.btn--primary{ background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn--primary:hover{ filter: brightness(0.95); }
-.btn--outline{ background: #fff; border-color: var(--accent); color: var(--accent); }
-.btn--outline:hover{ background: var(--gray-100); }
-.btn--disabled{ opacity: .6; cursor: not-allowed; }
 
-/* Notice */
-.notice{
+.reset-btn:hover { background: var(--gray-50); }
+
+/* ====================== CARDS & NOTICES ====================== */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.notice {
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--card);
   margin-bottom: 12px;
 }
-.notice--warn{ border-color: var(--coral); color: var(--coral); background: #fff1f0; }
 
-/* Cards / Ladder */
-.card{
+.notice--warn {
+  /* Fallback */
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 1px 0 rgba(0,0,0,.02);
+
+  /* Modern */
+  background: color-mix(in oklab, #f59e0b 15%, var(--card) 85%);
+  border: 1px solid color-mix(in oklab, #f59e0b 30%, var(--border) 70%);
+
+  color: var(--coral);
+  margin-top: 10px;
 }
-.ladder{
+
+/* ====================== META BAR ====================== */
+.meta-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 6px 0 12px;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.meta-label {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.meta-value {
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+.meta-item.score .score-value {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* ====================== LADDER ====================== */
+.ladder {
   display: grid;
   gap: 12px;
   padding: 12px;
-  margin-bottom: 10px;
+  margin: 10px 0;
 }
-.ladder-row{
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.ladder-prompt{ min-width: 160px; font-size: 18px; }
-.answer-input{
-  padding: 6px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--gray-300);
-  font-size: 16px;
-  width: 140px;
-  background: var(--card);
-}
-.answer-input:disabled{ background: #f6f6f6; }
-.result-icon{ min-width: 24px; }
 
-/* ---------- THEME-AWARE NUMBER CHIP (circled index) ---------- */
-/* structural helpers (safe even if already present) */
-.index-col{ width: 32px; display: flex; justify-content: center; }
-.index-chip{
+.ladder-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.ladder-row:last-child { border-bottom: none; }
+
+.ladder-prompt {
+  min-width: 160px;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.answer-input, .answer-input input {
+  height: 36px;
+  min-width: 120px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 16px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.answer-input:disabled { background: var(--gray-100); }
+
+.result-icon { min-width: 24px; }
+
+.index-col { width: 32px; display: flex; justify-content: center; }
+
+.index-chip {
+  display: inline-flex;
   width: 28px;
   height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 2px solid var(--border);
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  /* Fallback */
   background: var(--card);
-  color: var(--muted);
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 1;
+  /* Modern */
+  background: color-mix(in oklab, var(--accent) 15%, var(--card) 85%);
+  color: var(--text);
+  font-weight: 800;
+  border: 2px solid var(--border);
 }
-.ladder-row:focus-within .index-chip{
+
+.ladder-row:focus-within .index-chip {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent);
 }
 
-/* Blue (Default) */
-[data-theme="blue"] .index-chip{
-  border-color: #93c5fd;         /* blue-300 */
-  color: #1e40af;                /* blue-800 text for contrast */
-  background: rgba(59,130,246,.06); /* soft tint */
+/* ====================== HABITS & CALENDAR ====================== */
+.habit-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
 }
 
-/* Light (lilac/pink) */
-[data-theme="light"] .index-chip{
-  border-color: #d8b4fe;         /* violet-300 */
-  color: #6d28d9;                /* violet-700 */
-  background: rgba(124,58,237,.07); /* lilac tint */
+.habit-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
-/* Dark (slate/ink) */
-[data-theme="dark"] .index-chip{
-  border-color: #334155;         /* slate-700 */
-  color: #e5e7eb;                /* text: zinc-200 */
-  background: #1f2937;           /* slate-800 */
-}
-[data-theme="dark"] .ladder-row:focus-within .index-chip{
-  /* crisp accent ring in dark */
-  box-shadow: 0 0 0 3px var(--accent);
+.habit-days {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-/* Instructions */
-.rules{ margin-top: 14px; padding: 14px; }
-.rules h2{ margin: 0 0 8px; color: var(--primary); }
-.rules h3{ margin: 10px 0 6px; }
-.rules ul{ margin: 6px 0 10px 16px; line-height: 1.5; }
-.rules-paragraph{ margin: 6px 0; line-height: 1.6; }
+.habit-streak { margin-top: 6px; }
 
-/* Stronger border just for the Instructions card */
-.rules.card { border-color: #A7BFFF; }
+.habit-extras {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
 
-/* Final score popup */
-.score-popup{
+.bestpill-compact {
+  transform: scale(0.94);
+  transform-origin: center;
+}
+
+/* Weekly Calendar */
+.week { margin-top: 8px; }
+
+.week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  align-items: center;
+  justify-items: center;
+  max-width: 420px;
+}
+
+.week .dot {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+  opacity: 0.95;
+}
+
+.week .dot.done {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: transparent;
+  opacity: 1;
+}
+
+.week .dot.today {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.week .dot-letter { line-height: 1; }
+
+.caption {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Calendar legacy support */
+.calendar-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+/* When used as a week grid, switch to grid layout */
+.calendar-row.week {
+  display: grid;
+  grid-template-columns: repeat(7, 24px);
+  gap: 6px;
+}
+
+.calendar-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+}
+
+.calendar-dot--idle {
+  background: var(--gray-100);
+  border-color: var(--border);
+}
+
+.calendar-dot--done {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.calendar-dot--today {
+  box-shadow: 0 0 0 2px var(--accent) inset;
+}
+
+.streak-text {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pill {
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* ====================== MOBILE CONTROLS ====================== */
+.smart-number-wrap {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-wrap { display: inline-flex; gap: 6px; }
+
+.pm-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.pm-btn:active { transform: translateY(1px); }
+
+.mini-stopwatch {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 60;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: clamp(14px, 4.5vw, 18px);
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+  transform: translateY(10px);
+}
+
+.mini-stopwatch.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ====================== SCORE POPUP & ANIMATIONS ====================== */
+.score-popup {
   position: fixed;
   inset: 0;
   display: grid;
@@ -286,9 +649,11 @@ html, body{
   z-index: 40;
   animation: fadeOut 6s ease forwards;
 }
-.score-popup.long{ animation: fadeOut 9s ease forwards; }
-.score-popup-card{
-  background: #ffffff;
+
+.score-popup.long { animation: fadeOut 9s ease forwards; }
+
+.score-popup-card {
+  background: var(--card);
   border: 1px solid var(--border);
   padding: 16px 22px;
   border-radius: 14px;
@@ -298,139 +663,120 @@ html, body{
   text-align: center;
   pointer-events: auto;
 }
-.score-popup-card.perfect{ padding: 22px 28px; border-radius: 16px; }
-.score-title{ font-size: 14px; color: #334155; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
-.score-value-big{ font-size: 28px; font-weight: 900; color: var(--primary); }
-.score-popup-card.perfect .score-value-big{ font-size: 32px; }
-.popup-actions{ margin-top: 10px; display: flex; justify-content: center; }
+
+.score-popup-card.perfect {
+  padding: 22px 28px;
+  border-radius: 16px;
+}
+
+.score-title {
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.score-value-big {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--accent);
+}
+
+.score-popup-card.perfect .score-value-big { font-size: 32px; }
+
+.popup-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
 
 /* Confetti */
-.confetti{ position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 60; }
-.confetti .piece{ position: absolute; top: -12px; width: 8px; height: 14px; border-radius: 2px; opacity: .95; animation-name: confettiFall; animation-timing-function: linear; animation-fill-mode: forwards; }
-@keyframes confettiFall{ to { transform: translateY(110vh) rotate(720deg); } }
-
-/* Footer */
-.footer{ margin-top: 18px; padding-top: 8px; color: #64748b; font-size: 13px; }
-
-/* --- Center the brand AND keep timer pinned right --- */
-.header{ position: relative; min-height: 56px; justify-content: flex-end; }
-.header .brand{ position: absolute; left: 50%; transform: translateX(-50%); text-align: center; width: max-content; }
-
-@keyframes popIn{ to { transform: scale(1); } }
-@keyframes fadeOut{ 0% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
-
-/* ---------- THEME TOKENS (default = Light Blue) ---------- */
-:root,
-[data-theme="blue"] {
-  --bg: #f7faff;
-  --text: #0f172a;
-  --card: #ffffff;
-  --border: #dbeafe;
-  --accent: #3b82f6;
-  --muted: #475569;
-  --banner-bg: #e8f1ff;
+.confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 60;
 }
 
-/* ===================== LIGHT THEME — COTTON-CANDY POP ===================== */
-[data-theme="light"] {
-  --bg: #fff7fe;
-  --text: #1f2937;
-  --card: #ffffff;
-  --border: #e9d5ff;   /* soft lilac */
-  --accent: #7c3aed;   /* lilac (base; buttons override to gradient) */
-  --muted: #6b7280;
-  --banner-bg: #f6f0ff;
+.confetti .piece {
+  position: absolute;
+  top: -12px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: .95;
+  animation-name: confettiFall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
 }
 
-/* Pastel background blobs on body so it spans the full page */
-body[data-theme="light"]{
-  background:
-    radial-gradient(1200px 600px at 10% -10%, #ffe4f4 0%, transparent 60%),
-    radial-gradient(1000px 500px at 90% -10%, #e9d5ff 0%, transparent 55%),
-    #fff7fe;
+/* ====================== INSTRUCTIONS & RULES ====================== */
+.rules {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #A7BFFF;
 }
 
-/* Title + subtitle colors */
-[data-theme="light"] .brand{ color:#7c3aed; }
-[data-theme="light"] .brand-subtitle{ color:#6366f1; }
-
-/* Timer pill & borders */
-[data-theme="light"] .header-timer{ background:#fff; border:1px solid #ead8ff; }
-
-/* Tabs (soft lilac active) */
-[data-theme="light"] .tab{ border:1px solid #e9d5ff; }
-[data-theme="light"] .tab--active{
-  background:#f5e1ff;
-  border-color:#d8b4fe;
-  color:#4c1d95;
+.rules h2 {
+  margin: 0 0 8px;
+  color: var(--accent);
 }
 
-/* Primary button: bubblegum → lilac gradient */
-[data-theme="light"] .btn.btn--primary{
+.rules h3 { margin: 10px 0 6px; }
+
+.rules ul {
+  margin: 6px 0 10px 16px;
+  line-height: 1.5;
+}
+
+.rules-paragraph, .rules-paragraph--daily {
+  margin: 6px 0;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* ====================== FOOTER ====================== */
+.footer {
+  margin: 28px 0 16px;
+  padding-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ====================== THEME-SPECIFIC OVERRIDES ====================== */
+
+/* Light theme button gradients */
+[data-theme="light"] .btn.btn--primary {
   background: linear-gradient(90deg, #f472b6 0%, #7c3aed 100%);
   border: none;
-  color:#fff;
-}
-[data-theme="light"] .btn.btn--outline{
-  background:#fff;
-  color:#1f2937;
-  border:1px solid #e9d5ff;
 }
 
-/* Inputs */
-[data-theme="light"] .answer-input{ background:#fff; border:2px solid #f3e8ff; }
-[data-theme="light"] .answer-input:focus{ outline:none; border-color:#d8b4fe; box-shadow:0 0 0 3px #f5e1ff; }
-
-/* ============================== DARK THEME =============================== */
-[data-theme="dark"] {
-  --bg: #0b1220;
-  --text: #f1f5f9;
-  --card: #111827;
-  --border: #253042;
-  --accent: #93c5fd;
-  --muted: #cbd5e1;
-  --banner-bg: #0f172a;
+[data-theme="light"] .answer-input:focus {
+  outline: none;
+  border-color: #d8b4fe;
+  box-shadow: 0 0 0 3px #f5e1ff;
 }
 
-/* Apply base colors */
-body { background: var(--bg); color: var(--text); }
+/* Dark theme specific overrides */
+[data-theme="dark"] .daily-btn--active {
+  background: var(--success);
+  border-color: var(--success);
+  color: #001510;
+}
 
-/* ---------- TOP BANNER (center title) ---------- */
-.top-banner { position: relative; background: var(--banner-bg); border-bottom: 1px solid var(--border); padding: 8px 12px; height: 40px; }
-.top-banner-title { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-weight: 500; color: var(--text); white-space: nowrap; pointer-events: none; }
-.theme-picker { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; padding: 6px 8px; border-radius: 8px; background: var(--card); color: var(--text); border: 1px solid var(--border); }
+[data-theme="dark"] .header-timer.danger {
+  color: #fecaca;
+  border-color: #ef4444;
+}
 
-/* ---------- COMMON SURFACES pick up theme tokens ---------- */
-.card, .rules, .ladder, .meta-bar, .notice, .score-popup-card { background: var(--card); color: var(--text); border-color: var(--border); }
-.meta-label, .rules .rules-paragraph, .notice { color: var(--muted); }
+/* ====================== RESPONSIVE DESIGN ====================== */
+@media (max-width: 720px) {
+  .habit-row { grid-template-columns: 1fr; row-gap: 12px; justify-items: center; }
+}
 
-/* Tabs & buttons use accent; Light overrides above adjust specifics */
-.tab { color: var(--text); border-color: var(--border); }
-.tab--active { background: var(--accent); color: #0b1220; border-color: var(--accent); }
-[data-theme="light"] .tab--active,
-[data-theme="blue"] .tab--active { color: #fff; }
-
-.btn--primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-[data-theme="dark"] .btn--primary { color: #0b1220; }
-.btn--outline { color: var(--accent); border-color: var(--accent); background: transparent; }
-
-.answer-input { background: var(--card); color: var(--text); border-color: var(--border); }
-
-/* ========= DARK MODE READABILITY (timer + meta chips) ========= */
-[data-theme="dark"] .header-timer { background: #1f2937; color: #f8fafc; border: 1px solid #334155; }
-[data-theme="dark"] .header-timer.danger { color: #fecaca; border-color: #ef4444; }
-[data-theme="dark"] .meta-item .meta-value, [data-theme="dark"] .meta-item .score-value { background: #1f2937; color: #e5e7eb; border: 1px solid #334155; }
-[data-theme="dark"] .meta-item .meta-label { color: #cbd5e1; }
-
-/* Unify Perfect Days + Status chips (no inner rectangle) */
-.meta-bar { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
-[data-theme="blue"] .meta-bar .meta-item:not(.score), [data-theme="dark"] .meta-bar .meta-item:not(.score) { border-radius: 12px; }
-[data-theme="blue"] .meta-bar .meta-item:not(.score) { background: var(--card) !important; border: 1px solid var(--border) !important; }
-[data-theme="blue"] .meta-bar .meta-item:not(.score) .meta-label, [data-theme="blue"] .meta-bar .meta-item:not(.score) .meta-value { background: transparent !important; color: var(--text) !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
-[data-theme="dark"] .meta-bar .meta-item:not(.score) { background: #1f2937 !important; border: 1px solid #334155 !important; color: #f8fafc; }
-[data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-label, [data-theme="dark"] .meta-bar .meta-item:not(.score) .meta-value { background: transparent !important; color: #f8fafc !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
-
-/* =================== Small-screen header timer shrink =================== */
 @media (max-width: 480px) {
   .header-timer {
     font-size: clamp(14px, 4.5vw, 18px);
@@ -439,295 +785,44 @@ body { background: var(--bg); color: var(--text); }
   }
 }
 
-/* MicroMath: gratification */
-.mm-correct-flag { margin-left: 6px; font-weight: 700; color: #10b981; }
-@keyframes mmSparkle { from { box-shadow: 0 0 0 0 rgba(16,185,129,0.6); } to { box-shadow: 0 0 0 14px rgba(16,185,129,0); } }
-.mm-sparkle { animation: mmSparkle 0.6s ease-out; border-radius: 10px; }
-
-/* Mini stopwatch (phones): animated show/hide + safe area */
-.mini-stopwatch {
-  position: fixed;
-  left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  transform: translate(-50%, 6px); /* small off-screen offset by default */
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text);
-  font-size: clamp(14px, 4.5vw, 18px);
-  font-variant-numeric: tabular-nums;
-  z-index: 50;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
-
-  /* Smooth transitions; keep mounted to avoid flicker */
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .18s ease, transform .18s ease;
+@media (max-width: 420px) {
+  .week-grid { gap: 6px; }
+  .week .dot { width: 28px; height: 28px; font-size: 0.85rem; }
 }
 
-.mini-stopwatch.show {
-  opacity: 1;
-  transform: translate(-50%, 0);
-  pointer-events: auto;
+@media (max-width: 360px) {
+  .calendar-row.week {
+    grid-template-columns: repeat(7, 24px);
+    gap: 6px;
+  }
+  .calendar-row.week .calendar-dot {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+  }
 }
 
-/* Dark-theme surface tokens for the chip */
-[data-theme="dark"] .mini-stopwatch {
-  background: #111827;
-  color: #F9FAFB;
-  border-color: #374151;
+@media (min-width: 768px) {
+  .bestpill-compact { transform: scale(0.97); }
 }
 
-/* Hide on desktop */
 @media (hover: hover) and (pointer: fine) {
   .mini-stopwatch { display: none; }
-}
-
-
-/* ===================== ± controls (mobile only) ===================== */
-.smart-number-wrap{
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 6px;
-}
-.pm-wrap{
-  display: inline-flex;
-  gap: 6px;
-}
-.pm-btn{
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text);
-  font-weight: 600;
-  line-height: 1;
-}
-.pm-btn:active{ transform: translateY(1px); }
-/* Hide the ± controls on non-touch desktop */
-@media (hover: hover) and (pointer: fine) {
   .pm-wrap { display: none; }
 }
-/* ==== DAILY PARAGRAPH CLARITY (Light + Dark) ==== */
-.rules-paragraph--daily {
-  color: var(--text); /* Light theme = body text color (usually black) */
-}
 
-/* Dark theme explicit override — we cover common theme toggles */
-:root.dark .rules-paragraph--daily,
-[data-theme="dark"] .rules-paragraph--daily,
-body.dark .rules-paragraph--daily,
-html.dark .rules-paragraph--daily {
-  color: #ffffff; /* strong white for max contrast on dark */
-}
+/* ====================== ANIMATIONS & KEYFRAMES ====================== */
+@keyframes popIn { to { transform: scale(1); } }
+@keyframes fadeOut { 0% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes confettiFall { to { transform: translateY(110vh) rotate(720deg); } }
 
-/* ==== LIGHT THEME TAB READABILITY (Active state) ==== */
-/* Add these classes to your tab elements in Step 2 */
-.mode-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.mode-tab {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border, #00000022);
-  background: var(--card, #fff);
-  color: var(--text, #000);
-  font-weight: 600;
-  line-height: 1;
-}
-
-/* Light theme active state: high contrast, bold, white text on primary */
-html:not(.dark):not([data-theme="dark"]) .mode-tab[aria-selected="true"],
-html:not(.dark):not([data-theme="dark"]) .mode-tab--active {
-  background: var(--primary, #2563EB);
-  color: #ffffff;
-  border-color: var(--primary, #2563EB);
-  font-weight: 700;
-}
-
-/* Optional: make inactive tabs slightly dimmer in Light theme */
-html:not(.dark):not([data-theme="dark"]) .mode-tab[aria-selected="false"] {
-  opacity: 0.9;
-}
-/* ==== DARK THEME CONTRAST FIXES (Playing / Paused / Done) ==== */
-/* These do NOT change Light theme; they apply only when body[data-theme="dark"]. */
-body[data-theme="dark"] {
-  /* If you use design tokens, these help unify other styles, too */
-  --bg: #0b1220;        /* deep slate/navy */
-  --card: #1f2937;      /* slate-800 */
-  --border: #334155;    /* slate-700 */
-  --text: #f8fafc;      /* slate-50 */
-  --muted: #94a3b8;     /* slate-400 */
-}
-
-body[data-theme="dark"],
-body[data-theme="dark"] .app-container {
-  background: var(--bg);
-  color: var(--text);
-}
-
-/* Cards, ladders, meta bars, notices */
-body[data-theme="dark"] .card,
-body[data-theme="dark"] .ladder,
-body[data-theme="dark"] .rules,
-body[data-theme="dark"] .notice,
-body[data-theme="dark"] .meta-bar {
-  background: var(--card);
-  border-color: var(--border);
-  color: var(--text);
-}
-
-/* Prompts + labels + values */
-body[data-theme="dark"] .ladder-prompt,
-body[data-theme="dark"] .meta-label,
-body[data-theme="dark"] .meta-value,
-body[data-theme="dark"] .brand-subtitle {
-  color: var(--text);
-}
-
-/* Inputs */
-body[data-theme="dark"] .answer-input,
-body[data-theme="dark"] input.answer-input,
-body[data-theme="dark"] .answer-input input {
-  background: #111827;             /* gray-900 for inputs */
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-/* Buttons (base and variants) */
-body[data-theme="dark"] .btn {
-  background: #1f2937;
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-body[data-theme="dark"] .btn--outline {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-body[data-theme="dark"] .btn--primary {
-  background: var(--primary, #2563EB);
-  border-color: var(--primary, #2563EB);
-  color: #ffffff;
-}
-
-/* Tabs */
-body[data-theme="dark"] .tab {
-  background: #111827;
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-body[data-theme="dark"] .tab--active,
-body[data-theme="dark"] .mode-tab--active {
-  background: var(--primary, #2563EB);
-  color: #ffffff;
-  border-color: var(--primary, #2563EB);
-}
-
-/* Daily button */
-body[data-theme="dark"] .daily-btn {
-  background: #111827;
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-body[data-theme="dark"] .daily-btn--active {
-  background: var(--success, #16A34A);
-  border-color: var(--success, #16A34A);
-  color: #001510; /* high contrast on green */
-}
-
-/* Final score visibility */
-body[data-theme="dark"] .score-value {
-  color: #f8fafc;
-}
-
-/* Keep the daily paragraph clear white in Dark (from your earlier step) */
-body[data-theme="dark"] .rules-paragraph--daily {
-  color: #ffffff;
-}
-
-
-/* Visually hide elements but keep for screen readers */
+/* ====================== ACCESSIBILITY ====================== */
 .sr-only {
   position: absolute !important;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip: rect(0,0,0,0);
   white-space: nowrap;
   border: 0;
-}
-/* === Header surface fix: make header blend with page background === */
-/* Keep the layout exactly the same; only remove the card-like surface. */
-
-/* Generic header rule */
-.header {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-
-/* If a more specific selector is setting the surface, override it too */
-.app-container > .header,
-main.app-container > .header {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-
-/* In case a pseudo-element paints the white panel, neutralize it */
-.header::before,
-.header::after {
-  content: none !important;
-}
-
-/* Do NOT change the timer pill; it stays as-is */
-/* =========================
-   Header surface reset (blend with theme background)
-   ========================= */
-
-/* 1) Kill any "card" background/gradient/border that a global rule applies
-      to direct children of .app-container */
-.app-container > .header,
-.app-container > header.header {
-  /* Wipe all background layers so the page background shows through */
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-
-  /* Remove the card edge */
-  border: 0 !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-}
-
-/* 2) Some theme setups paint via pseudo-elements.
-      Neutralize those if present. */
-.app-container > .header::before,
-.app-container > .header::after,
-header.header::before,
-header.header::after {
-  content: none !important;
-  background: none !important;
-  background-image: none !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-
-/* 3) Ensure the inner title container never introduces a white panel.
-      (Your header has a single <div> wrapping <h1> + subtitle.) */
-.app-container > .header > div:first-child {
-  background: transparent !important;
-  background-image: none !important;
-  border: 0 !important;
-  box-shadow: none !important;
 }

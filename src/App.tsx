@@ -1,27 +1,43 @@
+// src/App.tsx 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useMode } from "./hooks/useMode";
-import { generateLadder, generateLadderForSeed } from "./logic/generator";
-import { generateEasy, generateEasyForSeed } from "./logic/easy";
-import type { Step } from "./types";
-import ResultsShareSlot from "./components/ResultsShareSlot";
+import { useMode } from "./hooks/useMode.js";
+import { generateLadder, generateLadderForSeed } from "./logic/generator.js";
+import { generateEasy, generateEasyForSeed } from "./logic/easy.js";
+import type { Step } from "./types.js";
+import ResultsShareSlot from "./components/ResultsShareSlot.js";
+
 import "./App.css";
 
-/* Stopwatch & iOS-safe input */
-import { useStopwatch } from "./hooks/useStopwatch";
-import SmartNumberInput from "./components/SmartNumberInput";
-import { useTheme, type Theme } from "./hooks/useTheme";
+/* Stopwatch & input */
+import { useStopwatch } from "./hooks/useStopwatch.js";
+import SmartNumberInput from "./components/SmartNumberInput.js";
+import { useTheme, type Theme } from "./hooks/useTheme.js";
 
-/* ✅ Streaks helper */
-import { updateStreakOnFinish } from "./utils/streaks";
+/* Flags + Streak + share */
+import { FEATURE_STREAKS } from "./config/flags.js";
+import { updateStreakOnFinish } from "./utils/streaks.js";
+import { shareResult } from "./utils/share.js";
 
-/* ✅ Small pill chip that shows “🔥 Streak N · ❄️ 0|1” (non-dismissible now) */
-import StreakPill from "./components/StreakPill";
+/* Sticky header */
+import StickyHeader from "./components/StickyHeader.js";
 
-/* ✅ Web Share helper */
-import { shareResult } from "./utils/share";
+/* Habit-row components */
+import WeeklyCalendarRow from "./components/WeeklyCalendarRow.js";
+/* TodayChip removed by request */
+import BestPill from "./components/BestPill.js";
+import StreakCaption from "./components/StreakCaption.js";
 
-/* Sticky header wrapper */
-import StickyHeader from "./components/StickyHeader";
+/* Progress helpers */
+import {
+  buildWeekCalendar,
+  computeStreak,
+  loadBestForMode,
+  markPlayedToday,
+  updateBestOnFinish,
+  type Mode,
+} from "./utils/progress.js";
+
+import ResetButton from "./components/ResetButton.js";
 
 type Status = "idle" | "playing" | "done";
 
@@ -33,12 +49,20 @@ const todayKey = () => {
 
 /** Rotating encouragements for NON-perfect runs */
 const ENCOURAGEMENTS = [
-  "You're close—Keep Going! 🌟",
-  "Almost there—Push Through! 💪",
-  "Nice effort—Try Again! 🚀",
-  "So close—One More Go! 🎯",
-  "Good work—Finish Strong! 🔁",
+  "You're close—Keep Going!",
+  "Almost there—Push Through!",
+  "Nice effort—Try Again!",
+  "So close—One More Go!",
+  "Good work—Finish Strong!",
 ];
+
+/** ZERO-STREAK sentence options */
+const ZERO_STREAK_OPTIONS = [
+  "Start your streak today.",
+  "No run yet — press Start to begin.",
+  "First day starts now—give it a try!",
+] as const;
+const ZERO_STREAK_MSG = ZERO_STREAK_OPTIONS[0];
 
 /* ---------------- Inline Results Modal ---------------- */
 type ResultsProps = {
@@ -241,8 +265,11 @@ export default function App() {
   // THEME (persisted)
   const [theme, setTheme] = useTheme();
 
+  // ensure the theme attribute is on <body>
   useEffect(() => {
-    document.body.setAttribute("data-theme", theme);
+    if (typeof document !== "undefined") {
+      document.body.setAttribute("data-theme", theme);
+    }
   }, [theme]);
 
   // Stopwatch
@@ -263,6 +290,18 @@ export default function App() {
   const playedKey = `played:${seed}`;
   const canPlayToday = !isDaily || !localStorage.getItem(playedKey);
 
+  // session key + resetToHome
+  const [session, setSession] = useState(0);
+  const resetToHome = () => {
+    setStatus("idle");
+    setSteps([]);
+    setAnswers([]);
+    setPaused(false);
+    sw.reset();
+    setResults((r) => ({ ...r, open: false }));
+    setSession((s) => s + 1); // force remount of main area
+  };
+
   // Start / Finish / Reset ----------------------------------------------------
   const start = () => {
     if (!canPlayToday) return;
@@ -271,7 +310,7 @@ export default function App() {
     if (mode === "easy") {
       ladder = isDaily ? generateEasyForSeed(seed) : generateEasy();
 
-      // EASY ONLY: remove ÷ and TOP-UP to 8 questions (Daily & Practice)
+      // EASY ONLY: remove ÷ and top-up to 8 questions
       ladder = ladder.filter((s) => !s.prompt.includes("÷"));
       if (ladder.length < 8) {
         const seen = new Set(ladder.map((s) => s.prompt));
@@ -299,8 +338,7 @@ export default function App() {
     setStatus("playing");
     setPaused(false);
 
-    // Reset stopwatch to 0:00 until the first keystroke
-    sw.reset();
+    sw.reset(); // reset to 0:00 until first keystroke
   };
 
   const finish = () => {
@@ -314,13 +352,15 @@ export default function App() {
       : 0;
     const perfect = steps.length > 0 && score === steps.length;
 
-    /* ✅ Update streak + freeze in localStorage */
-    updateStreakOnFinish(score, steps.length || 8);
+    // A) Gate the finish handler's streak update behind the flag
+    if (FEATURE_STREAKS) {
+      updateStreakOnFinish(score, steps.length || 8);
+    }
 
-    /* Let StreakPill know its values changed (same-tab update) */
-    try {
-      window.dispatchEvent(new Event("streak:changed"));
-    } catch {}
+    // Mark played + update best per mode
+    const modeKey = mode as Mode;
+    markPlayedToday();
+    updateBestOnFinish(modeKey, score, steps.length || 8, sw.ms);
 
     const pickEnc = () => {
       if (perfect) return undefined;
@@ -346,8 +386,9 @@ export default function App() {
     sw.reset();
   };
 
-  // CSS hint for mobile timer positioning
+  // Let CSS know when a round is running (for mobile timer positioning)
   useEffect(() => {
+    if (typeof document === "undefined") return;
     const v = status === "playing" ? "1" : "0";
     document.body.setAttribute("data-playing", v);
     return () => {
@@ -355,7 +396,7 @@ export default function App() {
     };
   }, [status]);
 
-  // Start stopwatch on FIRST keystroke in an answer field
+  // Global keydown listener to start stopwatch on FIRST keystroke
   useEffect(() => {
     if (status !== "playing" || paused || sw.running) return;
 
@@ -395,30 +436,23 @@ export default function App() {
     }
   }, [status, correctCount, steps.length]);
 
-  const perfectDays = Number(localStorage.getItem("perfectDays") || "0");
+  // Labels & derived values for the habit row
+  const modeLabel =
+    mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy";
+  const modeKey = mode as Mode;
 
-  /* ENTER → focus next input */
-  const handleAnswerKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    idx: number
-  ) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    const val = (answers[idx] ?? "").trim();
-    if (!val) return;
+  // Calendar + streak + best per mode
+  const { days: calDays, flags: calFlags } = useMemo(buildWeekCalendar, [status, mode]);
+  const rollingStreak = useMemo(() => computeStreak(calFlags), [calFlags]);
 
-    const inputs = Array.from(
-      document.querySelectorAll<HTMLInputElement>(
-        "input.answer-input, .answer-input input"
-      )
-    );
-    const next = inputs[idx + 1];
-    if (next && !next.disabled) {
-      requestAnimationFrame(() => next.focus());
-    }
-  };
+  const streakCaption =
+    rollingStreak > 0
+      ? `You’re on a ${rollingStreak}-day run. Keep it going!`
+      : ZERO_STREAK_MSG;
 
-  /* Mini stopwatch: visibility logic */
+  const bestForMode = useMemo(() => loadBestForMode(modeKey), [modeKey, status]);
+
+  /* ------------------- Mini stopwatch: visibility logic ------------------ */
   const mainTimerRef = useRef<HTMLDivElement | null>(null);
   const [isMainInView, setIsMainInView] = useState(true);
 
@@ -433,6 +467,7 @@ export default function App() {
     return () => obs.disconnect();
   }, []);
 
+  // Scroll direction detector with small threshold
   const [scrollDir, setScrollDir] = useState<"up" | "down">("up");
   useEffect(() => {
     let lastY =
@@ -441,7 +476,7 @@ export default function App() {
       document.body.scrollTop ||
       0;
     let raf = 0;
-    const THRESHOLD = 16; // px
+    const THRESHOLD = 16;
 
     const onScroll = () => {
       cancelAnimationFrame(raf);
@@ -471,9 +506,12 @@ export default function App() {
 
   return (
     <>
-      {/* Top banner */}
+      {/* Top banner — centered title/emoji; theme selector pinned left */}
       <div className="top-banner">
-        <div className="top-banner-title">⏱ MicroMath </div>
+        <div className="top-banner-title">
+          <span className="emoji" aria-hidden="true">⏱</span>
+          MicroMath
+        </div>
 
         <select
           aria-label="Theme"
@@ -487,8 +525,8 @@ export default function App() {
         </select>
       </div>
 
-      <main className="app-container">
-        {/* Header */}
+      <main className="app-container" key={session}>
+        {/* Header with fixed height; timer hidden on Home */}
         <StickyHeader>
           <header
             className="header"
@@ -509,18 +547,20 @@ export default function App() {
               </p>
             </div>
 
-            <div
-              className="header-timer"
-              ref={mainTimerRef}
-              aria-live="polite"
-              style={{ position: "absolute", right: 0, top: 0 }}
-            >
-              ⏱ {sw.formatted}
-            </div>
+            {status !== "idle" && (
+              <div
+                className="header-timer"
+                ref={mainTimerRef}
+                aria-live="polite"
+                style={{ position: "absolute", right: 0, top: 0 }}
+              >
+                <span className="timer-emoji" aria-hidden="true">⏱</span> {sw.formatted}
+              </div>
+            )}
           </header>
         </StickyHeader>
 
-        {/* Floating mini stopwatch (phones) */}
+        {/* Floating mini stopwatch */}
         {status === "playing" && (
           <MiniStopwatch
             text={`⏱ ${sw.formatted}`}
@@ -531,7 +571,7 @@ export default function App() {
           />
         )}
 
-        {/* Tabs + Daily (Daily now styled exactly like the tabs) */}
+        {/* Tabs + Daily button */}
         <div className="controls-row mode-tabs">
           <button
             onClick={() => setMode("easy")}
@@ -554,30 +594,37 @@ export default function App() {
             Hard (8 questions)
           </button>
 
-          {/* ⬇️ Daily uses the SAME tab classes, so identical size/flow */}
           <button
             type="button"
-            className={`tab mode-tab ${isDaily ? "tab--active mode-tab--active" : ""}`}
+            className={`daily-btn ${isDaily ? "daily-btn--active" : ""}`}
             onClick={() => setIsDaily((v) => !v)}
-            aria-pressed={isDaily}
-            title="Daily gives you the same puzzle as everyone today"
+            title="Daily gives you the same puzzle everyone today"
           >
             Daily
           </button>
         </div>
 
-        {/* Meta bar (STATUS removed; Streak pill not dismissible) */}
-        <div className="meta-bar">
-          <div className="meta-item">
-            <span className="meta-label">Perfect days</span>
-            <span className="meta-value">{perfectDays}</span>
-          </div>
+        {/* Habit row: calendar (left), best pill (right), streak under calendar */}
+        <div className="habit-row">
+          <div className="habit-top">
+            <div className="habit-days">
+              <WeeklyCalendarRow days={calDays} />
+              <div className="habit-streak">
+                {/* B) Gate reads where streak values show */}
+                {FEATURE_STREAKS && <StreakCaption text={streakCaption} />}
+              </div>
+            </div>
 
-          {/* No “Status” chip anymore */}
-          <StreakPill />
+            {/* BestPill sits to the right of the circles; only on Home (Idle) */}
+            {status === "idle" && (
+              <div className="habit-best bestpill-compact">
+                <BestPill modeLabel={modeLabel} best={bestForMode} />
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Results strip + Share (after any finish) */}
+        {/* Results strip + Share */}
         {status === "done" && (
           <div className="results card" style={{ marginTop: 12, padding: 12 }}>
             <div className="final-score" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -589,7 +636,7 @@ export default function App() {
 
             <ResultsShareSlot
               status={status}
-              modeLabel={mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
+              modeLabel={modeLabel}
               finalScore={results.score}
               total={results.total}
               elapsedMs={results.timeMs}
@@ -598,9 +645,9 @@ export default function App() {
           </div>
         )}
 
-        {/* Buttons */}
+        {/* Primary buttons row: Start on Idle; Reset on Done */}
         <div className="primary-buttons">
-          {status !== "playing" && (
+          {status === "idle" && (
             <button
               onClick={start}
               disabled={!canPlayToday}
@@ -608,15 +655,11 @@ export default function App() {
               className={`btn btn--primary ${!canPlayToday ? "btn--disabled" : ""}`}
             >
               {isDaily ? "Start Today's" : "Start Random"}{" "}
-              {mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
+             {mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
             </button>
           )}
 
-          {(status === "done" || status === "idle") && (
-            <button onClick={reset} className="btn btn--outline">
-              Reset
-            </button>
-          )}
+          {status === "done" && <ResetButton onClick={resetToHome} />}
         </div>
 
         {/* Already played notice */}
@@ -663,6 +706,7 @@ export default function App() {
                       value={val}
                       onChange={(raw) => {
                         if (status === "playing" && !paused && !sw.running) sw.start();
+
                         const next = answers.slice();
                         next[i] = raw;
                         setAnswers(next);
@@ -670,7 +714,22 @@ export default function App() {
                       allowDecimal={false}
                       className="answer-input"
                       disabled={disabled}
-                      onKeyDown={(e) => handleAnswerKeyDown(e, i)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        e.preventDefault();
+                        const curr = (answers[i] ?? "").trim();
+                        if (!curr) return;
+
+                        const inputs = Array.from(
+                          document.querySelectorAll<HTMLInputElement>(
+                            "input.answer-input, .answer-input input"
+                          )
+                        );
+                        const nxt = inputs[i + 1];
+                        if (nxt && !nxt.disabled) {
+                          requestAnimationFrame(() => nxt.focus());
+                        }
+                      }}
                     />
                   </div>
 
@@ -681,7 +740,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Bottom actions: Submit + Pause/Resume */}
+        {/* Bottom actions: Submit + Pause/Resume + Reset (shown ONLY while playing) */}
         {status === "playing" && (
           <div
             className="bottom-actions"
@@ -690,6 +749,7 @@ export default function App() {
               display: "flex",
               gap: 12,
               justifyContent: "flex-start",
+              flexWrap: "wrap",
             }}
           >
             <button onClick={finish} className="btn btn--outline">
@@ -708,6 +768,9 @@ export default function App() {
             >
               {paused ? "Resume" : "Pause"}
             </button>
+            <button onClick={reset} className="btn btn--outline">
+              Reset
+            </button>
           </div>
         )}
 
@@ -724,17 +787,17 @@ export default function App() {
             }}
           >
             <p style={{ margin: "0 0 10px" }}>
-              MicroMath is a stopwatch-based arithmetic workout. Pick a level (8 questions),
-              press Start, and the watch begins on your first input. Press Submit to stop and
-              record your time. Goal: beat your personal best. Share your results with a friend.
+              MicroMath is a stopwatch-based arithmetic workout. Pick a level (8 questions), press
+              Start, and the watch begins on your first input. Press Submit to stop and record your time.
+              Goal: beat your personal best. Share your results with a friend.
             </p>
 
             <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
               <strong>Daily Button</strong>
             </h3>
             <p style={{ margin: "0 0 10px" }}>
-              Tap Daily to play the same puzzle everyone gets today at your chosen level (Easy,
-              Normal, or Hard). Finish and share your time to compare with friends.
+              Tap Daily to play the same puzzle everyone gets today at your chosen level (Easy, Normal, or Hard).
+              Finish and share your time to compare with friends.
             </p>
 
             <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
@@ -750,8 +813,8 @@ export default function App() {
               <strong>Why to use it regularly</strong>
             </h3>
             <p style={{ margin: "0 0 10px" }}>
-              Short, consistent reps build number sense, speed, and confidence. You don’t need
-              perfect streaks, just keep nudging your personal best downward.
+              Short, consistent reps build number sense, speed, and confidence. You don’t need perfect streaks, just keep
+              nudging your personal best downward.
             </p>
 
             <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
@@ -763,9 +826,7 @@ export default function App() {
               <li>Hard: adds exponents and parentheses</li>
             </ul>
 
-            <p style={{ margin: 0 }}>
-              Ready? Tap Start, race the clock, and share your best time.
-            </p>
+            <p style={{ margin: 0 }}>Ready? Tap Start, race the clock, and share your best time.</p>
           </div>
         )}
 

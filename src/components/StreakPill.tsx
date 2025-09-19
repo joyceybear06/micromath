@@ -1,6 +1,6 @@
 // src/components/StreakPill.tsx
 import { useEffect, useState } from "react";
-import { isStreakPillHidden } from "../utils/streaks";
+import { FEATURE_STREAKS } from "../config/flags.js";
 
 function readState() {
   try {
@@ -13,12 +13,20 @@ function readState() {
 }
 
 export default function StreakPill() {
-  const [hidden, setHidden] = useState(isStreakPillHidden());
+  // Feature-flag gate: render nothing when streaks are off.
+  if (!FEATURE_STREAKS) return null;
+
   const [s, setS] = useState(readState());
 
   useEffect(() => {
+    // If the user previously hid the pill, show it again permanently
+    try {
+      localStorage.removeItem("mm_hideStreaks");
+    } catch {}
+
     const onStorage = () => setS(readState());
     const onCustom = () => setS(readState());
+
     window.addEventListener("storage", onStorage);
     window.addEventListener("mm-streak-change", onCustom as EventListener);
     return () => {
@@ -27,46 +35,19 @@ export default function StreakPill() {
     };
   }, []);
 
-  if (hidden) return null;
-
+  // Reuse your "meta-item" styling so it matches Perfect Days/Status chips
   return (
     <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "6px 10px",
-        borderRadius: 999,
-        background: "var(--card)",
-        border: "1px solid var(--border)",
-        color: "var(--text)",
-        fontSize: 13,
-        backdropFilter: "blur(4px)",
-      }}
+      className="meta-item streak-pill"
       aria-label={`Streak ${s.streak}, Freeze ${s.freeze}`}
+      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
     >
-      <span>🔥 Streak {s.streak}</span>
-      <span>· ❄️ {s.freeze}</span>
-      <button
-        type="button"
-        onClick={() => {
-          try { localStorage.setItem("mm_hideStreaks", "1"); } catch {}
-          setHidden(true);
-        }}
-        title="Hide"
-        aria-label="Hide streaks pill"
-        style={{
-          marginLeft: 6,
-          border: 0,
-          background: "transparent",
-          color: "var(--muted)",
-          cursor: "pointer",
-          fontSize: 16,
-          lineHeight: 1,
-        }}
-      >
-        ×
-      </button>
+      <span>
+        🔥 Streak <strong>{s.streak}</strong>
+      </span>
+      <span>
+        · ❄️ <strong>{s.freeze}</strong>
+      </span>
     </div>
   );
 }
