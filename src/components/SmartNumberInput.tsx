@@ -1,152 +1,171 @@
-import React from "react";
+import React, { useMemo, useRef } from "react";
 
 type Props = {
   value: string;
-  onChange: (raw: string) => void;
-
-  className?: string;
-  placeholder?: string;
-  allowDecimal?: boolean;              // default false
-  autoFocus?: boolean;
-  inputMode?: "decimal" | "numeric";
+  onChange: (val: string) => void;
+  allowDecimal?: boolean;
+  className?: string; // should include "answer-input" (your code already passes it)
   disabled?: boolean;
-
-  // Allow parent (App.tsx) to handle Enter → next, etc.
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
+  placeholder?: string;
 };
 
-/** Robust iOS detection, including iPadOS 13+ which identifies as "Mac" */
-const isIOS =
-  typeof navigator !== "undefined" &&
-  (/(iPad|iPhone|iPod)/i.test(navigator.userAgent || "") ||
-    (navigator.platform === "MacIntel" && (navigator as any).maxTouchPoints > 1));
+export default function SmartNumberInput({
+  value,
+  onChange,
+  allowDecimal = false,
+  className,
+  disabled,
+  onKeyDown,
+  placeholder,
+}: Props) {
+  // Show pad on touch devices (Android + iOS). Desktop stays input-only.
+  const showPad = useMemo(() => {
+    try {
+      return typeof window !== "undefined" &&
+        "matchMedia" in window &&
+        window.matchMedia("(pointer: coarse)").matches;
+    } catch {
+      return false;
+    }
+  }, []);
 
-const SmartNumberInput = React.forwardRef<HTMLInputElement, Props>(
-  (
-    {
-      value,
-      onChange,
-      className,
-      placeholder,
-      allowDecimal = false,
-      autoFocus,
-      inputMode = "decimal",
-      disabled = false,
-      onKeyDown,
-    },
-    forwardedRef
-  ) => {
-    const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
-    // Merge our local ref with the forwarded one
-    const setRef = (el: HTMLInputElement | null) => {
-      inputRef.current = el;
-      if (typeof forwardedRef === "function") forwardedRef(el);
-      else if (forwardedRef && "current" in forwardedRef) (forwardedRef as any).current = el;
-    };
+  const inputClass = useMemo(() => {
+    // Ensure the input element itself has "answer-input" for your selectors
+    const hasAnswer = (className || "").split(/\s+/).includes("answer-input");
+    return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
+  }, [className]);
 
-    const sanitize = (raw: string) => {
-      // Normalize exotic minus and decimal comma
-      let v = raw.replace(/[–—−]/g, "-").replace(",", ".");
-      // Keep digits, optional leading '-', and optionally a single '.'
-      v = v.replace(/[^0-9.\-]/g, "");
-      v = v.replace(/(?!^)-/g, ""); // only one leading minus
-      if (!allowDecimal) v = v.replace(/\./g, "");
-      else v = v.replace(/(\..*)\./g, "$1"); // only one dot
-      return v;
-    };
+  // Sanitize keyboard input: keep digits, one optional leading '-', and optional '.' if allowed
+  function sanitize(raw: string): string {
+    const trimmed = raw.replace(/\s+/g, "");
+    if (trimmed === "-") return "-"; // allow bare minus while editing
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      onChange(sanitize(e.target.value));
-    };
+    let sign = "";
+    let rest = trimmed;
+    if (rest.startsWith("-")) {
+      sign = "-";
+      rest = rest.slice(1);
+    }
 
-    const toggleSign = () => {
-      if (disabled) return;
-      const cur = (value ?? "").replace(/[–—−]/g, "-");
-      const next = cur.startsWith("-")
-        ? cur.slice(1)
-        : cur.length
-        ? `-${cur.replace(/^-/, "")}`
-        : "-";
-      onChange(next);
-      // Keep focus + move caret to end so user continues typing naturally
-      requestAnimationFrame(() => {
-        const el = inputRef.current;
-        if (!el) return;
-        el.focus();
-        try {
-          const l = el.value.length;
-          el.setSelectionRange(l, l);
-        } catch {}
-      });
-    };
+    if (allowDecimal) {
+      // allow only first dot
+      rest = rest.replace(/[^\d.]/g, "");
+      const parts = rest.split(".");
+      rest = parts.shift() ?? "";
+      if (parts.length > 0) rest += "." + parts.join("");
+    } else {
+      rest = rest.replace(/\D/g, "");
+    }
 
-    // Styles are inline and use your CSS variables so they auto-theme
-    const wrapStyle: React.CSSProperties = {
-      position: "relative",
-      display: "inline-block",
-    };
+    return sign + rest;
+  }
 
-    const inputStyle: React.CSSProperties =
-      isIOS && !disabled
-        ? { paddingLeft: 34 } // make room for the little ± inside the field
-        : {};
+  function handleNativeChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const next = sanitize(e.target.value);
+    onChange(next);
+  }
 
-    const buttonStyle: React.CSSProperties = {
-      position: "absolute",
-      left: 6,
-      top: "50%",
-      transform: "translateY(-50%)",
-      width: 24,
-      height: 24,
-      borderRadius: 6,
-      border: "1px solid var(--border)",
-      background: "var(--card)",
-      color: "var(--text)",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      lineHeight: 1,
-      fontWeight: 700,
-      fontSize: 14,
-      cursor: "pointer",
-      userSelect: "none",
-      padding: 0,
-    };
+  function focusInput() {
+    try {
+      inputRef.current?.focus({ preventScroll: true });
+    } catch {
+      inputRef.current?.focus();
+    }
+  }
 
-    return (
-      <div style={wrapStyle}>
-        {/* iOS-only minus toggle; hidden elsewhere; also hide when disabled */}
-        {isIOS && !disabled && (
+  // Button logic: toggle/set sign, then focus stays in the field
+  function onMinusClick() {
+    if (disabled) return;
+    const raw = (value ?? "").trim();
+    let next: string;
+    if (raw.startsWith("-")) {
+      next = raw.slice(1);
+    } else {
+      next = raw ? `-${raw}` : "-";
+    }
+    onChange(next);
+    focusInput();
+  }
+
+  function onPlusClick() {
+    if (disabled) return;
+    const raw = (value ?? "").trim();
+    const next = raw.startsWith("-") ? raw.slice(1) : raw;
+    onChange(next);
+    focusInput();
+  }
+
+  return (
+    <div
+      // Inline group so the pad sits "in the same block" as the number field
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+        maxWidth: 240, // keeps row tidy; adjust if you want wider inputs
+      }}
+    >
+      <input
+        ref={inputRef}
+        type="tel"
+        inputMode={allowDecimal ? "decimal" : "numeric"}
+        pattern={allowDecimal ? "[0-9]*[.,]?[0-9]*" : "[0-9-]*"}
+        value={value}
+        onChange={handleNativeChange}
+        className={inputClass}
+        disabled={disabled}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        aria-label="Answer"
+        // Keep input flexible even with buttons present
+        style={{
+          flex: 1,
+          minWidth: 0,
+        }}
+      />
+
+      {/* + / − controls render only on touch devices (Android + iOS) */}
+      {showPad && (
+        <div style={{ display: "flex", gap: 8 }}>
           <button
             type="button"
-            aria-label="Toggle negative sign"
-            title="Toggle negative sign"
-            onClick={toggleSign}
-            style={buttonStyle}
+            aria-label="Plus"
+            onClick={onPlusClick}
+            disabled={disabled}
+            style={btnStyle}
           >
-            ±
+            +
           </button>
-        )}
+          <button
+            type="button"
+            aria-label="Minus"
+            onClick={onMinusClick}
+            disabled={disabled}
+            style={btnStyle}
+          >
+            −
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
-        <input
-          ref={setRef}
-          type="text"
-          className={className}
-          placeholder={placeholder}
-          inputMode={inputMode}
-          autoFocus={autoFocus}
-          disabled={disabled}
-          value={value}
-          onChange={handleChange}
-          onKeyDown={onKeyDown}
-          autoComplete="off"
-          enterKeyHint="done"
-          style={inputStyle}
-        />
-      </div>
-    );
-  }
-);
-
-export default SmartNumberInput;
+// Large, round, platform-consistent buttons (≈48px touch target)
+const btnStyle: React.CSSProperties = {
+  height: 48,
+  width: 48,
+  borderRadius: 9999,
+  border: "1px solid rgba(0,0,0,0.12)",
+  background: "#fff",
+  fontSize: 24,
+  fontWeight: 700,
+  lineHeight: "1",
+  cursor: "pointer",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+  touchAction: "manipulation",
+};
