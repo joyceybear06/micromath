@@ -1,4 +1,3 @@
-// src/App.tsx 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMode } from "./hooks/useMode.js";
 import { generateLadder, generateLadderForSeed } from "./logic/generator.js";
@@ -38,6 +37,8 @@ import {
 } from "./utils/progress.js";
 
 import ResetButton from "./components/ResetButton.js";
+import Feedback from "./routes/Feedback";
+import { useNavigate } from "react-router-dom"; // ⬅️ ADDED
 
 type Status = "idle" | "playing" | "done";
 
@@ -100,6 +101,10 @@ function InlineResultsModal({
   const panelBg = isDark ? "#1f2937" : "#ffffff";
   const panelBorder = isDark ? "#334155" : "#e5e7eb";
   const panelText = isDark ? "#f8fafc" : "#111827";
+
+  // ⬇️ ADDED: we need navigate to push to /feedback
+  const navigate = useNavigate();
+  const goFeedback = () => navigate("/feedback", { replace: false });
 
   useEffect(() => {
     if (!open) return;
@@ -191,7 +196,7 @@ function InlineResultsModal({
 
         {!perfect && (
           <p style={{ marginTop: 6, marginBottom: 10, color: isDark ? "#e5e7eb" : "#374151" }}>
-            {message ?? "Nice effort—keep going!"}
+            {message ?? "Nice effort—Try again! A little every day builds speed."}
           </p>
         )}
 
@@ -210,6 +215,23 @@ function InlineResultsModal({
           >
             Share
           </button>
+
+          {/* ⬇️ ADDED: Give feedback button */}
+          <button
+            onClick={goFeedback}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: `1px solid ${panelBorder}`,
+              background: isDark ? "#1f2937" : "#f8fafc",
+              color: panelText,
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Give feedback
+          </button>
+
           <button
             onClick={onClose}
             style={{

@@ -7,12 +7,33 @@ function mailtoUrl(to: string, subject: string, body: string) {
   return `mailto:${encodeURIComponent(to)}?subject=${enc(subject)}&body=${enc(body)}`;
 }
 
+/** Light/dark palette identical to your modal */
+function usePanelColors() {
+  const isDark =
+    typeof document !== "undefined" &&
+    (document.body.getAttribute("data-theme") === "dark" ||
+      document.body.classList.contains("dark") ||
+      document.documentElement.classList.contains("dark"));
+
+  return {
+    isDark,
+    panelBg: isDark ? "#1f2937" : "#ffffff",
+    panelBorder: isDark ? "#334155" : "#e5e7eb",
+    panelText: isDark ? "#f8fafc" : "#111827",
+    subText: isDark ? "#e5e7eb" : "#374151",
+    helperText: isDark ? "#94a3b8" : "#64748b",
+    inputBg: isDark ? "#0f172a" : "#ffffff",
+  };
+}
+
 export default function Feedback() {
   const navigate = useNavigate();
   const [msg, setMsg] = React.useState("");
   const [email, setEmail] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const { panelBg, panelBorder, panelText, subText, helperText, inputBg } = usePanelColors();
 
-  // Optional: analytics that a user opened the feedback page (non-blocking)
+  // analytics: page opened
   React.useEffect(() => {
     try {
       void fetch("/api/track", {
@@ -41,81 +62,194 @@ export default function Feedback() {
   }
 
   const onSend = () => {
-    if (!msg.trim()) return;
+    if (msg.trim().length < 3 || sending) return;
 
-    // 1) fire-and-forget analytics
     trackFeedbackSend();
+    setSending(true);
 
-    // 2) open the user's email client – no backend required
-    const to = "feedback@micromath.app"; // TODO: change to your inbox later
+    // Compose the email
+    const to = "feedback@micromath.app"; // change to your inbox later
     const subject = "MicroMath feedback";
     const body =
       (email ? `From: ${email}\n\n` : "") +
       `Feedback:\n${msg}\n\n---\nDevice: ${navigator.userAgent}`;
     const url = mailtoUrl(to, subject, body);
 
+    // Open mail client (no backend required)
     window.location.href = url;
 
-    // 3) optional: send them home shortly after launching email app
-    setTimeout(() => navigate("/", { replace: false }), 400);
+    // Navigate home shortly after
+    setTimeout(() => {
+      setSending(false);
+      navigate("/", { replace: false });
+    }, 400);
   };
 
-  return (
-    <section className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-semibold">Give feedback</h1>
-      <p className="mt-2 text-slate-600">
-        Tell us what worked and what didn’t. Short and honest is perfect.
-      </p>
+  const canSend = msg.trim().length >= 3 && !sending;
+  const counter = `${Math.min(msg.length, 500)}/500`;
 
-      <div className="mt-4">
-        <label className="block text-sm font-medium mb-1" htmlFor="email">
-          Your email (optional)
+  return (
+    <div
+      style={{
+        // Centered layout + mobile gutters
+        maxWidth: "100%",
+        padding: "16px",
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      <section
+        aria-label="Give feedback"
+        style={{
+          width: "100%",
+          maxWidth: 560, // ✅ desktop cap
+          background: panelBg,
+          color: panelText,
+          border: `1px solid ${panelBorder}`,
+          borderRadius: 12,
+          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+          padding: 20, // ✅ comfortable on mobile
+        }}
+      >
+        {/* Title + subtext */}
+        <div style={{ marginBottom: 10 }}>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Give feedback</h1>
+          <p style={{ margin: "6px 0 0", color: subText }}>
+            Tell us what worked and what didn’t. Short and honest is perfect.
+          </p>
+        </div>
+
+        {/* Email (optional) */}
+        <label
+          htmlFor="fb-email"
+          style={{ display: "block", fontSize: 14, fontWeight: 600, marginTop: 6, marginBottom: 6 }}
+        >
+          Your email <span style={{ fontWeight: 400, color: helperText }}>(optional, for reply)</span>
         </label>
         <input
-          id="email"
+          id="fb-email"
           type="email"
-          placeholder="you@example.com"
           value={email}
+          inputMode="email"
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded border p-3"
+          placeholder="you@example.com"
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: `1px solid ${panelBorder}`,
+            background: inputBg,
+            color: panelText,
+            outline: "none",
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              // Move focus to textarea for fast flow
+              const t = document.getElementById("fb-msg") as HTMLTextAreaElement | null;
+              t?.focus();
+            }
+          }}
         />
-      </div>
 
-      <div className="mt-4">
-        <label className="block text-sm font-medium mb-1" htmlFor="msg">
+        {/* Feedback text */}
+        <label
+          htmlFor="fb-msg"
+          style={{
+            display: "block",
+            fontSize: 14,
+            fontWeight: 600,
+            marginTop: 14,
+            marginBottom: 6,
+          }}
+        >
           Your feedback
         </label>
         <textarea
-          id="msg"
-          rows={6}
+          id="fb-msg"
+          rows={7}
           value={msg}
-          onChange={(e) => setMsg(e.target.value)}
-          className="w-full rounded border p-3"
+          onChange={(e) => setMsg(e.target.value.slice(0, 500))}
           placeholder="What should we improve?"
+          aria-describedby="fb-helper fb-count"
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: `1px solid ${panelBorder}`,
+            background: inputBg,
+            color: panelText,
+            outline: "none",
+            lineHeight: 1.5,
+            resize: "vertical",
+            minHeight: 120,
+          }}
         />
-      </div>
 
-      <div className="mt-6 flex gap-2">
-        <button
-          type="button"
-          onClick={onSend}
-          disabled={!msg.trim()}
-          className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
+        {/* helper + counter */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            marginTop: 6,
+            marginBottom: 10,
+            color: helperText,
+            fontSize: 12,
+          }}
         >
-          Send feedback
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate("/", { replace: false })}
-          className="rounded-md border px-4 py-2"
-        >
-          Back to Home
-        </button>
-      </div>
+          <span id="fb-helper">A few words are enough.</span>
+          <span id="fb-count">{counter}</span>
+        </div>
 
-      <p className="mt-3 text-xs text-slate-500">
-        “Send feedback” opens your email app with a prefilled message. No login required.
-      </p>
-    </section>
+        {/* Actions */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            justifyContent: "flex-end",
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onSend}
+            disabled={!canSend}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "none",
+              background: canSend ? "#2563eb" : "rgba(37,99,235,0.5)",
+              color: "white",
+              cursor: canSend ? "pointer" : "not-allowed",
+              fontWeight: 700,
+            }}
+            aria-label="Send feedback (opens your email app)"
+          >
+            {sending ? "Opening…" : "Send feedback"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/", { replace: false })}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: `1px solid ${panelBorder}`,
+              background: inputBg,
+              color: panelText,
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Back to Home
+          </button>
+        </div>
+
+        {/* Footnote */}
+        <p style={{ margin: "10px 0 0", color: helperText, fontSize: 12 }}>
+          “Send feedback” opens your email app with a prefilled message. No login required.
+        </p>
+      </section>
+    </div>
   );
 }
