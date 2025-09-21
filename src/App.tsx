@@ -1,16 +1,44 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";  
-import { useMode } from "./hooks/useMode";
-import { generateLadder, generateLadderForSeed } from "./logic/generator";
-import { generateEasy, generateEasyForSeed } from "./logic/easy";
-import type { Step } from "./types";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMode } from "./hooks/useMode.js";
+import { generateLadder, generateLadderForSeed } from "./logic/generator.js";
+import { generateEasy, generateEasyForSeed } from "./logic/easy.js";
+import type { Step } from "./types.js";
+import ResultsShareSlot from "./components/ResultsShareSlot.js";
+
 import "./App.css";
-import MiniStopwatch from "./components/MiniStopwatch";
 
+/* Stopwatch & input */
+import { useStopwatch } from "./hooks/useStopwatch.js";
+import SmartNumberInput from "./components/SmartNumberInput.js";
+import { useTheme, type Theme } from "./hooks/useTheme.js";
 
-/* Stopwatch & iOS-safe input */
-import { useStopwatch } from "./hooks/useStopwatch";
-import SmartNumberInput from "./components/SmartNumberInput";
-import { useTheme, type Theme } from "./hooks/useTheme";
+/* Flags + Streak + share */
+import { FEATURE_STREAKS } from "./config/flags.js";
+import { updateStreakOnFinish } from "./utils/streaks.js";
+import { shareResult } from "./utils/share.js";
+
+/* Sticky header */
+import StickyHeader from "./components/StickyHeader.js";
+
+/* Habit-row components */
+import WeeklyCalendarRow from "./components/WeeklyCalendarRow.js";
+/* TodayChip removed by request */
+import BestPill from "./components/BestPill.js";
+import StreakCaption from "./components/StreakCaption.js";
+
+/* Progress helpers */
+import {
+  buildWeekCalendar,
+  computeStreak,
+  loadBestForMode,
+  markPlayedToday,
+  updateBestOnFinish,
+  type Mode,
+} from "./utils/progress.js";
+
+import ResetButton from "./components/ResetButton.js";
+import Feedback from "./routes/Feedback";
+import { useNavigate } from "react-router-dom"; // ⬅️ ADDED
 
 type Status = "idle" | "playing" | "done";
 
@@ -22,12 +50,20 @@ const todayKey = () => {
 
 /** Rotating encouragements for NON-perfect runs */
 const ENCOURAGEMENTS = [
-  "You're close—Keep Going! 🌟",
-  "Almost there—Push Through! 💪",
-  "Nice effort—Try Again! 🚀",
-  "So close—One More Go! 🎯",
-  "Good work—Finish Strong! 🔁",
+  "You're close—Keep Going!",
+  "Almost there—Push Through!",
+  "Nice effort—Try Again!",
+  "So close—One More Go!",
+  "Good work—Finish Strong!",
 ];
+
+/** ZERO-STREAK sentence options */
+const ZERO_STREAK_OPTIONS = [
+  "Start your streak today.",
+  "No run yet — press Start to begin.",
+  "First day starts now—give it a try!",
+] as const;
+const ZERO_STREAK_MSG = ZERO_STREAK_OPTIONS[0];
 
 /* ---------------- Inline Results Modal ---------------- */
 type ResultsProps = {
@@ -56,10 +92,19 @@ function InlineResultsModal({
   onClose,
   message,
 }: ResultsProps) {
-  const shareText = useMemo(
-    () => `I just finished MicroMath — Score ${score}/${total} in ${fmtTime(timeMs)}!`,
-    [score, total, timeMs]
-  );
+  const isDark =
+    typeof document !== "undefined" &&
+    (document.body.getAttribute("data-theme") === "dark" ||
+      document.body.classList.contains("dark") ||
+      document.documentElement.classList.contains("dark"));
+
+  const panelBg = isDark ? "#1f2937" : "#ffffff";
+  const panelBorder = isDark ? "#334155" : "#e5e7eb";
+  const panelText = isDark ? "#f8fafc" : "#111827";
+
+  // ⬇️ ADDED: we need navigate to push to /feedback
+  const navigate = useNavigate();
+  const goFeedback = () => navigate("/feedback", { replace: false });
 
   useEffect(() => {
     if (!open) return;
@@ -76,9 +121,7 @@ function InlineResultsModal({
           origin: { y: 0.6 },
           scalar: perfect ? 1.1 : 0.9,
         });
-      } catch {
-        /* optional */
-      }
+      } catch {}
     })();
     return () => {
       canceled = true;
@@ -86,18 +129,15 @@ function InlineResultsModal({
   }, [open, perfect]);
 
   const onShare = async () => {
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    const text = `${shareText}\n${url}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ text, url });
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        alert("Copied results to clipboard!");
-      } else {
-        prompt("Copy your results:", text);
-      }
-    } catch {}
+    const url = typeof window !== "undefined" ? window.location.origin : "";
+    await shareResult({
+      appName: "MicroMath",
+      score,
+      total,
+      elapsedMs: timeMs,
+      url,
+      title: "MicroMath",
+    });
   };
 
   if (!open) return null;
@@ -121,11 +161,12 @@ function InlineResultsModal({
         style={{
           width: "100%",
           maxWidth: 420,
-          background: "#ffffff",
+          background: panelBg,
+          color: panelText,
           borderRadius: 12,
           boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
           padding: 20,
-          border: "2px solid #e9d5ff",
+          border: `1px solid ${panelBorder}`,
         }}
       >
         <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>
@@ -154,8 +195,8 @@ function InlineResultsModal({
         </div>
 
         {!perfect && (
-          <p style={{ marginTop: 6, marginBottom: 10, color: "#374151" }}>
-            {message ?? "Nice effort—keep going!"}
+          <p style={{ marginTop: 6, marginBottom: 10, color: isDark ? "#e5e7eb" : "#374151" }}>
+            {message ?? "Nice effort—Try again! A little every day builds speed."}
           </p>
         )}
 
@@ -165,14 +206,32 @@ function InlineResultsModal({
             style={{
               padding: "10px 14px",
               borderRadius: 10,
-              border: "1px solid #e5e7eb",
-              background: "#f8fafc",
+              border: `1px solid ${panelBorder}`,
+              background: isDark ? "#1f2937" : "#f8fafc",
+              color: panelText,
               cursor: "pointer",
               fontWeight: 600,
             }}
           >
             Share
           </button>
+
+          {/* ⬇️ ADDED: Give feedback button */}
+          <button
+            onClick={goFeedback}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: `1px solid ${panelBorder}`,
+              background: isDark ? "#1f2937" : "#f8fafc",
+              color: panelText,
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            Give feedback
+          </button>
+
           <button
             onClick={onClose}
             style={{
@@ -194,8 +253,27 @@ function InlineResultsModal({
 }
 /* ---------------------------- End modal ----------------------------------- */
 
-/* ------------------------- MiniStopwatch (new) ---------------------------- */
-
+/* ------------------------- MiniStopwatch (floating) ----------------------- */
+function MiniStopwatch({
+  text,
+  onClick,
+  visible,
+}: {
+  text: string;
+  onClick?: () => void;
+  visible: boolean;
+}) {
+  return (
+    <button
+      className={`mini-stopwatch ${visible ? "show" : "hide"}`}
+      onClick={onClick}
+      aria-label="Scroll to main timer"
+      type="button"
+    >
+      {text}
+    </button>
+  );
+}
 /* ------------------------------------------------------------------------- */
 
 export default function App() {
@@ -209,9 +287,11 @@ export default function App() {
   // THEME (persisted)
   const [theme, setTheme] = useTheme();
 
-  // ensure the theme attribute is on <body> (so light palette applies globally)
+  // ensure the theme attribute is on <body>
   useEffect(() => {
-    document.body.setAttribute("data-theme", theme);
+    if (typeof document !== "undefined") {
+      document.body.setAttribute("data-theme", theme);
+    }
   }, [theme]);
 
   // Stopwatch
@@ -232,6 +312,18 @@ export default function App() {
   const playedKey = `played:${seed}`;
   const canPlayToday = !isDaily || !localStorage.getItem(playedKey);
 
+  // session key + resetToHome
+  const [session, setSession] = useState(0);
+  const resetToHome = () => {
+    setStatus("idle");
+    setSteps([]);
+    setAnswers([]);
+    setPaused(false);
+    sw.reset();
+    setResults((r) => ({ ...r, open: false }));
+    setSession((s) => s + 1); // force remount of main area
+  };
+
   // Start / Finish / Reset ----------------------------------------------------
   const start = () => {
     if (!canPlayToday) return;
@@ -240,7 +332,7 @@ export default function App() {
     if (mode === "easy") {
       ladder = isDaily ? generateEasyForSeed(seed) : generateEasy();
 
-      // EASY ONLY: remove ÷ and TOP-UP to 8 questions (Daily & Practice)
+      // EASY ONLY: remove ÷ and top-up to 8 questions
       ladder = ladder.filter((s) => !s.prompt.includes("÷"));
       if (ladder.length < 8) {
         const seen = new Set(ladder.map((s) => s.prompt));
@@ -268,8 +360,7 @@ export default function App() {
     setStatus("playing");
     setPaused(false);
 
-    // Reset stopwatch to 0:00 until the first keystroke
-    sw.reset();
+    sw.reset(); // reset to 0:00 until first keystroke
   };
 
   const finish = () => {
@@ -282,6 +373,16 @@ export default function App() {
       ? steps.reduce((acc, s, i) => acc + (Number(answers[i]) === s.answer ? 1 : 0), 0)
       : 0;
     const perfect = steps.length > 0 && score === steps.length;
+
+    // A) Gate the finish handler's streak update behind the flag
+    if (FEATURE_STREAKS) {
+      updateStreakOnFinish(score, steps.length || 8);
+    }
+
+    // Mark played + update best per mode
+    const modeKey = mode as Mode;
+    markPlayedToday();
+    updateBestOnFinish(modeKey, score, steps.length || 8, sw.ms);
 
     const pickEnc = () => {
       if (perfect) return undefined;
@@ -309,6 +410,7 @@ export default function App() {
 
   // Let CSS know when a round is running (for mobile timer positioning)
   useEffect(() => {
+    if (typeof document === "undefined") return;
     const v = status === "playing" ? "1" : "0";
     document.body.setAttribute("data-playing", v);
     return () => {
@@ -337,7 +439,7 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler, true);
   }, [status, paused, sw]);
 
-  // Scoring ------------------------------------------------------------------
+  // Scoring
   const correctCount = useMemo(
     () =>
       steps.reduce((acc, s, i) => {
@@ -356,56 +458,21 @@ export default function App() {
     }
   }, [status, correctCount, steps.length]);
 
-  // Meta values --------------------------------------------------------------
-  const perfectDays = Number(localStorage.getItem("perfectDays") || "0");
-  const statusChip = isDaily
-    ? `Daily Mode: ${canPlayToday ? "Not Completed Today" : "Completed for Today"}`
-    : "Practice Mode";
+  // Labels & derived values for the habit row
+  const modeLabel =
+    mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy";
+  const modeKey = mode as Mode;
 
-  // Render ^ as superscript in prompts
-  const renderPromptWithSuperscript = (text: string): ReactNode => {
-    const re = /(\S+)\s*\^\s*(\S+)/g;
-    const parts: ReactNode[] = [];
-    let last = 0;
-    let k = 0;
-    for (const match of text.matchAll(re)) {
-      const idx = match.index ?? 0;
-      if (idx > last) parts.push(text.slice(last, idx));
-      const base = match[1];
-      const exp = match[2];
-      parts.push(
-        <span key={`pow-${k++}`}>
-          {base}
-          <sup>{exp}</sup>
-        </span>
-      );
-      last = idx + match[0].length;
-    }
-    if (last < text.length) parts.push(text.slice(last));
-    return <>{parts}</>;
-  };
+  // Calendar + streak + best per mode
+  const { days: calDays, flags: calFlags } = useMemo(buildWeekCalendar, [status, mode]);
+  const rollingStreak = useMemo(() => computeStreak(calFlags), [calFlags]);
 
-  /* ---------------------- ENTER → focus next input ---------------------- */
-  const handleAnswerKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    idx: number
-  ) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    const val = (answers[idx] ?? "").trim();
-    if (!val) return;
+  const streakCaption =
+    rollingStreak > 0
+      ? `You’re on a ${rollingStreak}-day run. Keep it going!`
+      : ZERO_STREAK_MSG;
 
-    const inputs = Array.from(
-      document.querySelectorAll<HTMLInputElement>(
-        "input.answer-input, .answer-input input"
-      )
-    );
-    const next = inputs[idx + 1];
-    if (next && !next.disabled) {
-      requestAnimationFrame(() => next.focus());
-    }
-  };
-  /* --------------------------------------------------------------------- */
+  const bestForMode = useMemo(() => loadBestForMode(modeKey), [modeKey, status]);
 
   /* ------------------- Mini stopwatch: visibility logic ------------------ */
   const mainTimerRef = useRef<HTMLDivElement | null>(null);
@@ -422,14 +489,51 @@ export default function App() {
     return () => obs.disconnect();
   }, []);
 
-  const showMini = status === "playing" && !isMainInView;
-  /* ---------------------------------------------------------------------- */
+  // Scroll direction detector with small threshold
+  const [scrollDir, setScrollDir] = useState<"up" | "down">("up");
+  useEffect(() => {
+    let lastY =
+      window.scrollY ||
+      document.documentElement.scrollTop ||
+      document.body.scrollTop ||
+      0;
+    let raf = 0;
+    const THRESHOLD = 16;
+
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const y =
+          window.scrollY ||
+          document.documentElement.scrollTop ||
+          document.body.scrollTop ||
+          0;
+        const dy = y - lastY;
+        if (Math.abs(dy) > THRESHOLD) {
+          setScrollDir(dy > 0 ? "down" : "up");
+          lastY = y;
+        }
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
+  const miniVisible =
+    status === "playing" && !paused && !isMainInView && scrollDir !== "down";
 
   return (
     <>
-      {/* Top banner (centered title, picker on far right) */}
+      {/* Top banner — centered title/emoji; theme selector pinned left */}
       <div className="top-banner">
-        <div className="top-banner-title">⏱ MicroMath </div>
+        <div className="top-banner-title">
+          <span className="emoji" aria-hidden="true">⏱</span>
+          MicroMath
+        </div>
 
         <select
           aria-label="Theme"
@@ -443,64 +547,71 @@ export default function App() {
         </select>
       </div>
 
-      <main className="app-container">
-        {/* Header: title + subtitle centered; timer on the right */}
-        <header
-          className="header"
-          style={{
-            position: "relative",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "flex-start",
-            marginBottom: 24,
-          }}
-        >
-          <div style={{ textAlign: "center" }}>
-            <h1 className="brand" style={{ position: "static", transform: "none", marginBottom: 8 }}>
-              MicroMath
-            </h1>
-            <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
-              Daily brain warm-up.
-            </p>
-          </div>
-
-          <div
-            className="header-timer"
-            ref={mainTimerRef}
-            aria-live="polite"
-            style={{ position: "absolute", right: 0, top: 0 }}
+      <main className="app-container" key={session}>
+        {/* Header with fixed height; timer hidden on Home */}
+        <StickyHeader>
+          <header
+            className="header"
+            style={{
+              position: "relative",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              marginBottom: 24,
+            }}
           >
-            ⏱ {sw.formatted}
-          </div>
-        </header>
+            <div style={{ textAlign: "center" }}>
+              <h1 className="brand" style={{ position: "static", transform: "none", marginBottom: 8 }}>
+                MicroMath
+              </h1>
+              <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
+                Your Daily Math Dealer 🙂
+              </p>
+            </div>
 
-        {/* Floating mini stopwatch (mobile) */}
-        {showMini && (
-      <MiniStopwatch
-  ms={sw.ms}
-  onClick={() => mainTimerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
-/>
+            {status !== "idle" && (
+              <div
+                className="header-timer"
+                ref={mainTimerRef}
+                aria-live="polite"
+                style={{ position: "absolute", right: 0, top: 0 }}
+              >
+                <span className="timer-emoji" aria-hidden="true">⏱</span> {sw.formatted}
+              </div>
+            )}
+          </header>
+        </StickyHeader>
+
+        {/* Floating mini stopwatch */}
+        {status === "playing" && (
+          <MiniStopwatch
+            text={`⏱ ${sw.formatted}`}
+            visible={miniVisible}
+            onClick={() =>
+              mainTimerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+            }
+          />
         )}
 
         {/* Tabs + Daily button */}
-        <div className="controls-row">
+        <div className="controls-row mode-tabs">
           <button
             onClick={() => setMode("easy")}
-            className={`tab ${mode === "easy" ? "tab--active" : ""}`}
+            className={`tab mode-tab ${mode === "easy" ? "tab--active mode-tab--active" : ""}`}
           >
             Easy (8 questions)
           </button>
 
           <button
             onClick={() => setMode("normal")}
-            className={`tab ${mode === "normal" ? "tab--active" : ""}`}
+            className={`tab mode-tab ${mode === "normal" ? "tab--active mode-tab--active" : ""}`}
           >
             Normal (8 questions)
           </button>
 
           <button
             onClick={() => setMode("hard")}
-            className={`tab ${mode === "hard" ? "tab--active" : ""}`}
+            className={`tab mode-tab ${mode === "hard" ? "tab--active mode-tab--active" : ""}`}
           >
             Hard (8 questions)
           </button>
@@ -508,39 +619,57 @@ export default function App() {
           <button
             type="button"
             className={`daily-btn ${isDaily ? "daily-btn--active" : ""}`}
-            aria-pressed={isDaily}
-            title="Daily: same puzzle as everyone today"
-            onClick={() => setIsDaily((d) => !d)}
+            onClick={() => setIsDaily((v) => !v)}
+            title="Daily gives you the same puzzle everyone today"
           >
-            {isDaily ? "Daily (same puzzle)" : "Practice (random)"}
+            Daily
           </button>
         </div>
 
-        {/* Meta bar */}
-        <div className="meta-bar">
-          <div className="meta-item">
-            <span className="meta-label">Perfect days</span>
-            <span className="meta-value">{perfectDays}</span>
-          </div>
-
-          <div className="meta-item">
-            <span className="meta-label">Status</span>
-            <span className="meta-value">{statusChip}</span>
-          </div>
-
-          {status === "done" && steps.length > 0 && (
-            <div className="meta-item score">
-              <span className="meta-label">Final score</span>
-              <span className="meta-value score-value">
-                {correctCount}/{steps.length}
-              </span>
+        {/* Habit row: calendar (left), best pill (right), streak under calendar */}
+        <div className="habit-row">
+          <div className="habit-top">
+            <div className="habit-days">
+              <WeeklyCalendarRow days={calDays} />
+              <div className="habit-streak">
+                {/* B) Gate reads where streak values show */}
+                {FEATURE_STREAKS && <StreakCaption text={streakCaption} />}
+              </div>
             </div>
-          )}
+
+            {/* BestPill sits to the right of the circles; only on Home (Idle) */}
+            {status === "idle" && (
+              <div className="habit-best bestpill-compact">
+                <BestPill modeLabel={modeLabel} best={bestForMode} />
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Buttons */}
+        {/* Results strip + Share */}
+        {status === "done" && (
+          <div className="results card" style={{ marginTop: 12, padding: 12 }}>
+            <div className="final-score" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="meta-label">FINAL SCORE</span>
+              <a className="meta-value">
+                {results.score}/{results.total}
+              </a>
+            </div>
+
+            <ResultsShareSlot
+              status={status}
+              modeLabel={modeLabel}
+              finalScore={results.score}
+              total={results.total}
+              elapsedMs={results.timeMs}
+              className="mt-2"
+            />
+          </div>
+        )}
+
+        {/* Primary buttons row: Start on Idle; Reset on Done */}
         <div className="primary-buttons">
-          {status !== "playing" && (
+          {status === "idle" && (
             <button
               onClick={start}
               disabled={!canPlayToday}
@@ -548,15 +677,11 @@ export default function App() {
               className={`btn btn--primary ${!canPlayToday ? "btn--disabled" : ""}`}
             >
               {isDaily ? "Start Today's" : "Start Random"}{" "}
-              {mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
+             {mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
             </button>
           )}
 
-          {(status === "done" || status === "idle") && (
-            <button onClick={reset} className="btn btn--outline">
-              Reset
-            </button>
-          )}
+          {status === "done" && <ResetButton onClick={resetToHome} />}
         </div>
 
         {/* Already played notice */}
@@ -578,19 +703,30 @@ export default function App() {
 
               const hasEqualsInPrompt = s.prompt.includes("=");
 
+              // a11y off-screen label id
+              const srId = `q${i + 1}-label`;
+
               return (
                 <div key={i} className="ladder-row">
-                  <div className="ladder-prompt">
-                    {i + 1}.{" "}
+                  {/* Visual-only chip */}
+                  <div className="index-col" aria-hidden="true">
+                    <span className="index-chip">{i + 1}</span>
+                  </div>
+
+                  {/* Off-screen label for AT users */}
+                  <span id={srId} className="sr-only">{`Question ${i + 1}`}</span>
+
+                  {/* Prompt */}
+                  <div className="ladder-prompt" aria-describedby={srId}>
                     {mode === "hard" ? renderPromptWithSuperscript(s.prompt) : s.prompt}
                     {!hasEqualsInPrompt ? " =" : ""}
                   </div>
 
+                  {/* Input */}
                   <div style={disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined}>
                     <SmartNumberInput
                       value={val}
                       onChange={(raw) => {
-                        // Start stopwatch on first character typed
                         if (status === "playing" && !paused && !sw.running) sw.start();
 
                         const next = answers.slice();
@@ -600,7 +736,22 @@ export default function App() {
                       allowDecimal={false}
                       className="answer-input"
                       disabled={disabled}
-                      onKeyDown={(e) => handleAnswerKeyDown(e, i)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        e.preventDefault();
+                        const curr = (answers[i] ?? "").trim();
+                        if (!curr) return;
+
+                        const inputs = Array.from(
+                          document.querySelectorAll<HTMLInputElement>(
+                            "input.answer-input, .answer-input input"
+                          )
+                        );
+                        const nxt = inputs[i + 1];
+                        if (nxt && !nxt.disabled) {
+                          requestAnimationFrame(() => nxt.focus());
+                        }
+                      }}
                     />
                   </div>
 
@@ -611,7 +762,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Bottom actions: Submit + Pause/Resume */}
+        {/* Bottom actions: Submit + Pause/Resume + Reset (shown ONLY while playing) */}
         {status === "playing" && (
           <div
             className="bottom-actions"
@@ -620,14 +771,18 @@ export default function App() {
               display: "flex",
               gap: 12,
               justifyContent: "flex-start",
+              flexWrap: "wrap",
             }}
           >
-            <button onClick={finish} className="btn btn--outline">Submit</button>
+            <button onClick={finish} className="btn btn--outline">
+              Submit
+            </button>
             <button
               onClick={() => {
                 setPaused((p) => {
                   const next = !p;
-                  if (next) sw.stop(); else sw.start();
+                  if (next) sw.stop();
+                  else sw.start();
                   return next;
                 });
               }}
@@ -635,35 +790,75 @@ export default function App() {
             >
               {paused ? "Resume" : "Pause"}
             </button>
+            <button onClick={reset} className="btn btn--outline">
+              Reset
+            </button>
           </div>
         )}
 
         {/* Instructions */}
         {status === "idle" && (
-          <div className="rules card">
-            <h2>📘 How it works</h2>
-            <ul>
-              <li>Select <strong>Easy</strong> (8), <strong>Normal</strong> (8), or <strong>Hard</strong> (8).</li>
-              <li>Press <strong>Start</strong>. You're racing yourself. The stopwatch shows your total time to finish all 8.</li>
-              <li>Share with friends when you finish.</li>
-            </ul>
-
-            <h3>📅 Daily</h3>
-            <p className="rules-paragraph">
-              Tap <strong>Daily</strong> to get the <strong>same puzzle as everyone today</strong> (one play per mode).
-              Turn it off for unlimited practice with new random puzzles.
+          <div
+            className="rules card"
+            style={{
+              marginTop: 14,
+              padding: 14,
+              color: "#000",
+              lineHeight: 1.6,
+              fontWeight: 400,
+            }}
+          >
+            <p style={{ margin: "0 0 10px" }}>
+              MicroMath is a stopwatch-based arithmetic workout. Pick a level (8 questions), press
+              Start, and the watch begins on your first input. Press Submit to stop and record your time.
+              Goal: beat your personal best. Share your results with a friend.
             </p>
 
-            <h3>Modes at a glance</h3>
-            <ul>
-              <li><strong>Easy</strong>: whole numbers; + − ×.</li>
-              <li><strong>Normal</strong>: + − × ÷ with slightly tougher numbers.</li>
-              <li><strong>Hard</strong>: adds exponents (^) and parentheses.</li>
+            <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
+              <strong>Daily Button</strong>
+            </h3>
+            <p style={{ margin: "0 0 10px" }}>
+              Tap Daily to play the same puzzle everyone gets today at your chosen level (Easy, Normal, or Hard).
+              Finish and share your time to compare with friends.
+            </p>
+
+            <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
+              <strong>How to use</strong>
+            </h3>
+            <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
+              <li>Start where you are: pen &amp; paper welcome.</li>
+              <li>Calculator is allowed, but try to wean off—aim for quick mental math.</li>
+              <li>Show up daily (or as often as you can) and chip away at your time.</li>
             </ul>
+
+            <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
+              <strong>Why to use it regularly</strong>
+            </h3>
+            <p style={{ margin: "0 0 10px" }}>
+              Short, consistent reps build number sense, speed, and confidence. You don’t need perfect streaks, just keep
+              nudging your personal best downward.
+            </p>
+
+            <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
+              <strong>Modes at a glance</strong>
+            </h3>
+            <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
+              <li>Easy: whole numbers; + / − / ×</li>
+              <li>Normal: + / − / × / ÷, slightly tougher numbers</li>
+              <li>Hard: adds exponents and parentheses</li>
+            </ul>
+
+            <p style={{ margin: 0 }}>Ready? Tap Start, race the clock, and share your best time.</p>
           </div>
         )}
 
-        <footer className="footer">© {new Date().getFullYear()} MicroMath</footer>
+        <footer className="footer">
+          © {new Date().getFullYear()} MicroMath
+          {(() => {
+            const sha = (import.meta.env.VITE_COMMIT_SHA ?? "").slice(0, 7);
+            return sha ? ` · ${sha}` : "";
+          })()}
+        </footer>
 
         {/* Render results modal */}
         <InlineResultsModal
@@ -678,4 +873,27 @@ export default function App() {
       </main>
     </>
   );
+}
+
+// Helper: render ^ as superscript in prompts
+function renderPromptWithSuperscript(text: string): ReactNode {
+  const re = /(\S+)\s*\^\s*(\S+)/g;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let k = 0;
+  for (const match of text.matchAll(re)) {
+    const idx = match.index ?? 0;
+    if (idx > last) parts.push(text.slice(last, idx));
+    const base = match[1];
+    const exp = match[2];
+    parts.push(
+      <span key={`pow-${k++}`}>
+        {base}
+        <sup>{exp}</sup>
+      </span>
+    );
+    last = idx + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
 }

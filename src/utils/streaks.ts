@@ -1,5 +1,4 @@
-// src/utils/streaks.ts
-import { FEATURE_STREAKS } from "../config/flags.js"; // keep .js in imports for your setup
+import { FEATURE_STREAKS } from "../config/flags.js";
 
 export type StreakState = {
   lastPlayed: string | null;     // "YYYY-MM-DD" (local)

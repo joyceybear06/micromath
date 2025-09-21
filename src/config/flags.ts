@@ -1,4 +1,5 @@
 // src/config/flags.ts
+<<<<<<< HEAD
 
 /**
  * Feature flags used across the app.
@@ -12,3 +13,7 @@
  * - false → disable streak logic (no localStorage writes, pill hidden)
  */
 export const FEATURE_STREAKS = true;
+=======
+export const FEATURE_STREAKS: boolean =
+  (import.meta.env?.VITE_FEATURE_STREAKS ?? "off") === "on";
+>>>>>>> chore/flag-streaks-off

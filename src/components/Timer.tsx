@@ -1,6 +1,7 @@
 // src/components/Timer.tsx
 import { useEffect, useRef, useState } from "react";
 
+
 declare global {
   interface Window {
     __mmTimer?: {
@@ -85,5 +86,12 @@ export default function Timer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elapsed]);
 
-  return <span aria-label="Stopwatch" title="Stopwatch">{fmt(elapsed)}</span>;
+  return (
+    <>
+      <span aria-label="Stopwatch" title="Stopwatch">{fmt(elapsed)}</span>
+      {/* Step 5: exactly one render line added below. 
+         Pass your real score/total here when available. */}
+      
+    </>
+  );
 }
