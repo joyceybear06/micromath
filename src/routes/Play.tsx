@@ -1,6 +1,6 @@
 import { bumpStreak, getDifficulty, setPlayedToday } from "../lib/streak";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { generate as generateDay } from "../lib/generate";
+import * as gen from "../lib/generate";
 import { hintFor, isCorrect } from "../lib/check";
 import { useNavigate } from "react-router-dom";
 import ResultsCTAs from "../components/ResultsCTAs";
@@ -15,6 +15,8 @@ export default function Play() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const diff = getDifficulty();
+  // Robust pattern to handle any export name from generate module
+  const generateDay = (gen as any).generate ?? (gen as any).generateDay ?? (gen as any).default;
   const day = useMemo(() => generateDay(new Date(), diff), [diff]);
   const total = day.rungs.length;
   const rung = day.rungs[idx];

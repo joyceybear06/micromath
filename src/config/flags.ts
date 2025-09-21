@@ -1,19 +1,12 @@
-// src/config/flags.ts
-<<<<<<< HEAD
-
 /**
  * Feature flags used across the app.
  * Keep these simple booleans so TypeScript can tree-shake dead code
- * and to avoid runtime surprises.
+ * and avoid runtime surprises.
+ *
+ * STREAKS FLAG:
+ * - Default: ON
+ * - To disable: at build/deploy time, set VITE_FEATURE_STREAKS=off
+ * - Any other value (or missing): treated as ON
  */
-
-/**
- * Gate for all streak-related reads/writes and UI.
- * - true  → enable streak logic
- * - false → disable streak logic (no localStorage writes, pill hidden)
- */
-export const FEATURE_STREAKS = true;
-=======
-export const FEATURE_STREAKS: boolean =
-  (import.meta.env?.VITE_FEATURE_STREAKS ?? "off") === "on";
->>>>>>> chore/flag-streaks-off
+const raw = (import.meta as any)?.env?.VITE_FEATURE_STREAKS;
+export const FEATURE_STREAKS: boolean = (raw ?? "on") !== "off";
