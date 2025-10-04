@@ -1,10 +1,10 @@
-import React, { useMemo, useRef, useCallback, useState, useEffect } from "react";
+import React, { useMemo, useRef, useCallback, useEffect, useState } from "react";
 
 type Props = {
   value: string;
   onChange: (val: string) => void;
   allowDecimal?: boolean;
-  className?: string;
+  className?: string; // should include "answer-input"
   disabled?: boolean;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   placeholder?: string;
@@ -19,31 +19,31 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // Robust mobile detection (post-mount)
-  const [showPad, setShowPad] = useState(false);
+  // --- MOBILE-ONLY MINUS BUTTON VISIBILITY (robust detection after mount) ---
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const compute = () => {
+    const detect = () => {
       try {
         const w = window as any;
         const coarse = !!(w.matchMedia && w.matchMedia("(pointer: coarse)").matches);
-        const hasTouch =
+        const touch =
           "ontouchstart" in w ||
           (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
           ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
         const ua = (navigator.userAgent || "").toLowerCase();
         const uaMobile = /iphone|ipad|ipod|android|mobile/.test(ua);
-        const narrowViewport = Math.min(window.innerWidth, window.innerHeight) <= 900;
-        setShowPad(coarse || hasTouch || uaMobile || narrowViewport);
+        const narrow = Math.min(window.innerWidth, window.innerHeight) <= 900;
+        setIsMobile(coarse || touch || uaMobile || narrow);
       } catch {
-        setShowPad(false);
+        setIsMobile(false);
       }
     };
-    compute();
-    window.addEventListener("resize", compute);
-    window.addEventListener("orientationchange", compute);
+    detect();
+    window.addEventListener("resize", detect);
+    window.addEventListener("orientationchange", detect);
     return () => {
-      window.removeEventListener("resize", compute);
-      window.removeEventListener("orientationchange", compute);
+      window.removeEventListener("resize", detect);
+      window.removeEventListener("orientationchange", detect);
     };
   }, []);
 
@@ -54,6 +54,7 @@ export default function SmartNumberInput({
     return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
   }, [className]);
 
+  // --- SANITIZE TYPING ---
   function sanitize(raw: string): string {
     const trimmed = raw.replace(/\s+/g, "");
     if (trimmed === "-") return "-";
@@ -75,8 +76,7 @@ export default function SmartNumberInput({
   }
 
   function handleNativeChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const next = sanitize(e.target.value);
-    onChange(next);
+    onChange(sanitize(e.target.value));
   }
 
   function focusInput() {
@@ -87,51 +87,14 @@ export default function SmartNumberInput({
     }
   }
 
-  function onMinusClick() {
+  // --- NEGATIVE TOGGLE (single button) ---
+  const toggleMinus = useCallback(() => {
     if (disabled) return;
     const raw = (value ?? "").trim();
-    let next: string;
-    if (raw.startsWith("-")) {
-      next = raw.slice(1);
-    } else {
-      next = raw ? `-${raw}` : "-";
-    }
+    const next = raw.startsWith("-") ? raw.slice(1) : raw ? `-${raw}` : "-";
     onChange(next);
     focusInput();
-  }
-
-  function onPlusClick() {
-    if (disabled) return;
-    const raw = (value ?? "").trim();
-    const next = raw.startsWith("-") ? raw.slice(1) : raw;
-    onChange(next);
-    focusInput();
-  }
-
-  const inc = useCallback(() => onPlusClick(), [value, disabled]);
-  const dec = useCallback(() => onMinusClick(), [value, disabled]);
-
-  const repeatRef = useRef<number | null>(null);
-  const stopRepeat = () => {
-    if (repeatRef.current !== null) {
-      window.clearInterval(repeatRef.current);
-      repeatRef.current = null;
-    }
-  };
-  const startIncrement = (e: React.PointerEvent) => {
-    if (disabled) return;
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    e.preventDefault();
-    inc();
-    repeatRef.current = window.setInterval(inc, 180);
-  };
-  const startDecrement = (e: React.PointerEvent) => {
-    if (disabled) return;
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    e.preventDefault();
-    dec();
-    repeatRef.current = window.setInterval(dec, 180);
-  };
+  }, [value, disabled, onChange]);
 
   return (
     <div
@@ -158,51 +121,54 @@ export default function SmartNumberInput({
         style={{ flex: 1, minWidth: 0 }}
       />
 
-      {showPad && (
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            type="button"
-            aria-label="Increase"
-            onPointerDown={(e) => startIncrement(e)}
-            onPointerUp={stopRepeat}
-            onPointerCancel={stopRepeat}
-            onPointerLeave={stopRepeat}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") onPlusClick();
-            }}
-            disabled={disabled}
-            style={btnStyle}
+      {/* MOBILE-ONLY: single negative toggle */}
+      {isMobile && (
+        <button
+          type="button"
+          aria-label="Toggle negative"
+          onPointerDown={(e) => {
+            (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+            e.preventDefault();
+            toggleMinus();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") toggleMinus();
+          }}
+          disabled={disabled}
+          style={minusBtnStyle}
+        >
+          {/* Inline SVG ensures glyph is visible regardless of fonts */}
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+            style={{ display: "block" }}
           >
-            <PlusIcon />
-          </button>
-          <button
-            type="button"
-            aria-label="Decrease"
-            onPointerDown={(e) => startDecrement(e)}
-            onPointerUp={stopRepeat}
-            onPointerCancel={stopRepeat}
-            onPointerLeave={stopRepeat}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") onMinusClick();
-            }}
-            disabled={disabled}
-            style={btnStyle}
-          >
-            <MinusIcon />
-          </button>
-        </div>
+            <path
+              d="M5 12h14"
+              stroke="#000"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+        </button>
       )}
     </div>
   );
 }
 
-const btnStyle: React.CSSProperties = {
+// 48px circle; explicit colors so the minus is never invisible on mobile themes
+const minusBtnStyle: React.CSSProperties = {
   height: 48,
   width: 48,
   borderRadius: 9999,
   border: "1px solid rgba(0,0,0,0.12)",
   background: "#fff",
-  fontSize: 0, // neutralize any global font rules; icon is SVG
+  color: "#000",
+  fontSize: 0, // ignore font overrides; we render SVG
   cursor: "pointer",
   boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
   touchAction: "manipulation",
@@ -210,45 +176,3 @@ const btnStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
 };
-
-function PlusIcon() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      focusable="false"
-      style={{ display: "block" }}
-    >
-      <path
-        d="M12 5v14M5 12h14"
-        stroke="#000"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
-
-function MinusIcon() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      focusable="false"
-      style={{ display: "block" }}
-    >
-      <path
-        d="M5 12h14"
-        stroke="#000"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        fill="none"
-      />
-    </svg>
-  );
-}
