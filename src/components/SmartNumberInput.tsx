@@ -1,10 +1,11 @@
+// src/components/SmartNumberInput.tsx
 import React, { useMemo, useRef, useCallback, useState, useEffect } from "react";
 
 type Props = {
   value: string;
   onChange: (val: string) => void;
   allowDecimal?: boolean;
-  className?: string; // should include "answer-input" (your code already passes it)
+  className?: string; // should include "answer-input"
   disabled?: boolean;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   placeholder?: string;
@@ -19,32 +20,25 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // === PAD VISIBILITY (robust, mobile-first; no CSS/layout changes) ===
+  // Robust mobile detection (post-mount) so the pad renders on iOS/Android.
   const [showPad, setShowPad] = useState(false);
-
   useEffect(() => {
     const compute = () => {
       try {
         const w = window as any;
-
         const coarse = !!(w.matchMedia && w.matchMedia("(pointer: coarse)").matches);
-
         const hasTouch =
           ("ontouchstart" in w) ||
           (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
           ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
-
         const ua = (navigator.userAgent || "").toLowerCase();
         const uaMobile = /iphone|ipad|ipod|android|mobile/.test(ua);
-
         const narrowViewport = Math.min(window.innerWidth, window.innerHeight) <= 900;
-
         setShowPad(coarse || hasTouch || uaMobile || narrowViewport);
       } catch {
         setShowPad(false);
       }
     };
-
     compute();
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
@@ -61,18 +55,15 @@ export default function SmartNumberInput({
     return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
   }, [className]);
 
-  // === VALUE SANITIZATION ===
   function sanitize(raw: string): string {
     const trimmed = raw.replace(/\s+/g, "");
     if (trimmed === "-") return "-";
-
     let sign = "";
     let rest = trimmed;
     if (rest.startsWith("-")) {
       sign = "-";
       rest = rest.slice(1);
     }
-
     if (allowDecimal) {
       rest = rest.replace(/[^\d.]/g, "");
       const parts = rest.split(".");
@@ -81,7 +72,6 @@ export default function SmartNumberInput({
     } else {
       rest = rest.replace(/\D/g, "");
     }
-
     return sign + rest;
   }
 
@@ -98,7 +88,6 @@ export default function SmartNumberInput({
     }
   }
 
-  // === +/- ACTIONS (unchanged) ===
   function onMinusClick() {
     if (disabled) return;
     const raw = (value ?? "").trim();
@@ -120,11 +109,9 @@ export default function SmartNumberInput({
     focusInput();
   }
 
-  // Stabilized actions (prevents multiple intervals after re-renders)
   const inc = useCallback(() => onPlusClick(), [value, disabled]);
   const dec = useCallback(() => onMinusClick(), [value, disabled]);
 
-  // Long-press repeat via Pointer Events (mobile-friendly & instant)
   const repeatRef = useRef<number | null>(null);
   const stopRepeat = () => {
     if (repeatRef.current !== null) {
@@ -172,7 +159,6 @@ export default function SmartNumberInput({
         style={{ flex: 1, minWidth: 0 }}
       />
 
-      {/* Render pad only when showPad true (mobile/tablet). */}
       {showPad && (
         <div style={{ display: "flex", gap: 8 }}>
           <button
@@ -203,7 +189,7 @@ export default function SmartNumberInput({
             disabled={disabled}
             style={btnStyle}
           >
-            <span aria-hidden="true">−</span>
+            <span aria-hidden="true">-</span>
           </button>
         </div>
       )}
@@ -211,16 +197,21 @@ export default function SmartNumberInput({
   );
 }
 
+// Ensure the + / - glyph is visible even if parent text color is white.
 const btnStyle: React.CSSProperties = {
   height: 48,
   width: 48,
   borderRadius: 9999,
   border: "1px solid rgba(0,0,0,0.12)",
   background: "#fff",
+  color: "#000", // <— critical: fixes “empty white circles” on dark/white text themes
   fontSize: 24,
   fontWeight: 700,
   lineHeight: "1",
   cursor: "pointer",
   boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
   touchAction: "manipulation",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
