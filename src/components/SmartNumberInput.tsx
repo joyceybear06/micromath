@@ -19,36 +19,52 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // Show pad on touch devices (Android + iOS). Desktop stays input-only.
-  // Use robust detection after mount to avoid SSR/hydration mismatches.
+  // === PAD VISIBILITY (robust, mobile-first; no CSS/layout changes) ===
   const [showPad, setShowPad] = useState(false);
+
   useEffect(() => {
-    try {
-      const w = window as any;
-      const coarse =
-        !!(w.matchMedia && w.matchMedia("(pointer: coarse)").matches);
-      const touch =
-        ("ontouchstart" in w) ||
-        (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
-        ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
-      setShowPad(coarse || touch);
-    } catch {
-      setShowPad(false);
-    }
+    const compute = () => {
+      try {
+        const w = window as any;
+
+        const coarse = !!(w.matchMedia && w.matchMedia("(pointer: coarse)").matches);
+
+        const hasTouch =
+          ("ontouchstart" in w) ||
+          (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
+          ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
+
+        const ua = (navigator.userAgent || "").toLowerCase();
+        const uaMobile = /iphone|ipad|ipod|android|mobile/.test(ua);
+
+        const narrowViewport = Math.min(window.innerWidth, window.innerHeight) <= 900;
+
+        setShowPad(coarse || hasTouch || uaMobile || narrowViewport);
+      } catch {
+        setShowPad(false);
+      }
+    };
+
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("orientationchange", compute);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("orientationchange", compute);
+    };
   }, []);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const inputClass = useMemo(() => {
-    // Ensure the input element itself has "answer-input" for your selectors
     const hasAnswer = (className || "").split(/\s+/).includes("answer-input");
     return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
   }, [className]);
 
-  // Sanitize keyboard input: keep digits, one optional leading '-', and optional '.' if allowed
+  // === VALUE SANITIZATION ===
   function sanitize(raw: string): string {
     const trimmed = raw.replace(/\s+/g, "");
-    if (trimmed === "-") return "-"; // allow bare minus while editing
+    if (trimmed === "-") return "-";
 
     let sign = "";
     let rest = trimmed;
@@ -58,7 +74,6 @@ export default function SmartNumberInput({
     }
 
     if (allowDecimal) {
-      // allow only first dot
       rest = rest.replace(/[^\d.]/g, "");
       const parts = rest.split(".");
       rest = parts.shift() ?? "";
@@ -83,7 +98,7 @@ export default function SmartNumberInput({
     }
   }
 
-  // Button logic: toggle/set sign, then focus stays in the field
+  // === +/- ACTIONS (unchanged) ===
   function onMinusClick() {
     if (disabled) return;
     const raw = (value ?? "").trim();
@@ -134,13 +149,12 @@ export default function SmartNumberInput({
 
   return (
     <div
-      // Inline group so the pad sits "in the same block" as the number field
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
         width: "100%",
-        maxWidth: 240, // keeps row tidy; adjust if you want wider inputs
+        maxWidth: 240,
       }}
     >
       <input
@@ -155,14 +169,10 @@ export default function SmartNumberInput({
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label="Answer"
-        // Keep input flexible even with buttons present
-        style={{
-          flex: 1,
-          minWidth: 0,
-        }}
+        style={{ flex: 1, minWidth: 0 }}
       />
 
-      {/* + / − controls render only on touch devices (Android + iOS) */}
+      {/* Render pad only when showPad true (mobile/tablet). */}
       {showPad && (
         <div style={{ display: "flex", gap: 8 }}>
           <button
@@ -201,7 +211,6 @@ export default function SmartNumberInput({
   );
 }
 
-// Large, round, platform-consistent buttons (≈48px touch target)
 const btnStyle: React.CSSProperties = {
   height: 48,
   width: 48,
