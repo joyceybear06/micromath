@@ -1,11 +1,10 @@
-// src/components/SmartNumberInput.tsx
 import React, { useMemo, useRef, useCallback, useState, useEffect } from "react";
 
 type Props = {
   value: string;
   onChange: (val: string) => void;
   allowDecimal?: boolean;
-  className?: string; // should include "answer-input"
+  className?: string;
   disabled?: boolean;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   placeholder?: string;
@@ -20,15 +19,16 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // Robust mobile detection (post-mount) so the pad renders on iOS/Android.
+  // Always show pad on mobile devices (robust detection)
   const [showPad, setShowPad] = useState(false);
+
   useEffect(() => {
     const compute = () => {
       try {
         const w = window as any;
         const coarse = !!(w.matchMedia && w.matchMedia("(pointer: coarse)").matches);
         const hasTouch =
-          ("ontouchstart" in w) ||
+          "ontouchstart" in w ||
           (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
           ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
         const ua = (navigator.userAgent || "").toLowerCase();
@@ -156,7 +156,10 @@ export default function SmartNumberInput({
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label="Answer"
-        style={{ flex: 1, minWidth: 0 }}
+        style={{
+          flex: 1,
+          minWidth: 0,
+        }}
       />
 
       {showPad && (
@@ -189,7 +192,7 @@ export default function SmartNumberInput({
             disabled={disabled}
             style={btnStyle}
           >
-            <span aria-hidden="true">-</span>
+            <span aria-hidden="true">−</span>
           </button>
         </div>
       )}
@@ -197,14 +200,13 @@ export default function SmartNumberInput({
   );
 }
 
-// Ensure the + / - glyph is visible even if parent text color is white.
 const btnStyle: React.CSSProperties = {
   height: 48,
   width: 48,
   borderRadius: 9999,
   border: "1px solid rgba(0,0,0,0.12)",
   background: "#fff",
-  color: "#000", // <— critical: fixes “empty white circles” on dark/white text themes
+  color: "#000",
   fontSize: 24,
   fontWeight: 700,
   lineHeight: "1",
