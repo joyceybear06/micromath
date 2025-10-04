@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useCallback } from "react";
+import React, { useMemo, useRef, useCallback, useState, useEffect } from "react";
 
 type Props = {
   value: string;
@@ -20,15 +20,20 @@ export default function SmartNumberInput({
   placeholder,
 }: Props) {
   // Show pad on touch devices (Android + iOS). Desktop stays input-only.
-  const showPad = useMemo(() => {
+  // Use robust detection after mount to avoid SSR/hydration mismatches.
+  const [showPad, setShowPad] = useState(false);
+  useEffect(() => {
     try {
-      return (
-        typeof window !== "undefined" &&
-        "matchMedia" in window &&
-        window.matchMedia("(pointer: coarse)").matches
-      );
+      const w = window as any;
+      const coarse =
+        !!(w.matchMedia && w.matchMedia("(pointer: coarse)").matches);
+      const touch =
+        ("ontouchstart" in w) ||
+        (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
+        ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
+      setShowPad(coarse || touch);
     } catch {
-      return false;
+      setShowPad(false);
     }
   }, []);
 
@@ -37,9 +42,7 @@ export default function SmartNumberInput({
   const inputClass = useMemo(() => {
     // Ensure the input element itself has "answer-input" for your selectors
     const hasAnswer = (className || "").split(/\s+/).includes("answer-input");
-    return hasAnswer
-      ? className
-      : `${className ? className + " " : ""}answer-input`;
+    return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
   }, [className]);
 
   // Sanitize keyboard input: keep digits, one optional leading '-', and optional '.' if allowed
