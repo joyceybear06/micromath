@@ -19,9 +19,8 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // Always show pad on mobile devices (robust detection)
+  // Robust mobile detection (post-mount)
   const [showPad, setShowPad] = useState(false);
-
   useEffect(() => {
     const compute = () => {
       try {
@@ -156,10 +155,7 @@ export default function SmartNumberInput({
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label="Answer"
-        style={{
-          flex: 1,
-          minWidth: 0,
-        }}
+        style={{ flex: 1, minWidth: 0 }}
       />
 
       {showPad && (
@@ -177,7 +173,7 @@ export default function SmartNumberInput({
             disabled={disabled}
             style={btnStyle}
           >
-            <span aria-hidden="true">+</span>
+            <PlusIcon />
           </button>
           <button
             type="button"
@@ -192,7 +188,7 @@ export default function SmartNumberInput({
             disabled={disabled}
             style={btnStyle}
           >
-            <span aria-hidden="true">−</span>
+            <MinusIcon />
           </button>
         </div>
       )}
@@ -206,10 +202,7 @@ const btnStyle: React.CSSProperties = {
   borderRadius: 9999,
   border: "1px solid rgba(0,0,0,0.12)",
   background: "#fff",
-  color: "#000",
-  fontSize: 24,
-  fontWeight: 700,
-  lineHeight: "1",
+  fontSize: 0, // neutralize any global font rules; icon is SVG
   cursor: "pointer",
   boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
   touchAction: "manipulation",
@@ -217,3 +210,45 @@ const btnStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
 };
+
+function PlusIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      style={{ display: "block" }}
+    >
+      <path
+        d="M12 5v14M5 12h14"
+        stroke="#000"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function MinusIcon() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      style={{ display: "block" }}
+    >
+      <path
+        d="M5 12h14"
+        stroke="#000"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
