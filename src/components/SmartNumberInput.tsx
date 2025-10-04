@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useCallback } from "react";
 
 type Props = {
   value: string;
@@ -22,9 +22,11 @@ export default function SmartNumberInput({
   // Show pad on touch devices (Android + iOS). Desktop stays input-only.
   const showPad = useMemo(() => {
     try {
-      return typeof window !== "undefined" &&
+      return (
+        typeof window !== "undefined" &&
         "matchMedia" in window &&
-        window.matchMedia("(pointer: coarse)").matches;
+        window.matchMedia("(pointer: coarse)").matches
+      );
     } catch {
       return false;
     }
@@ -35,7 +37,9 @@ export default function SmartNumberInput({
   const inputClass = useMemo(() => {
     // Ensure the input element itself has "answer-input" for your selectors
     const hasAnswer = (className || "").split(/\s+/).includes("answer-input");
-    return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
+    return hasAnswer
+      ? className
+      : `${className ? className + " " : ""}answer-input`;
   }, [className]);
 
   // Sanitize keyboard input: keep digits, one optional leading '-', and optional '.' if allowed
@@ -98,6 +102,33 @@ export default function SmartNumberInput({
     focusInput();
   }
 
+  // Stabilized actions (prevents multiple intervals after re-renders)
+  const inc = useCallback(() => onPlusClick(), [value, disabled]);
+  const dec = useCallback(() => onMinusClick(), [value, disabled]);
+
+  // Long-press repeat via Pointer Events (mobile-friendly & instant)
+  const repeatRef = useRef<number | null>(null);
+  const stopRepeat = () => {
+    if (repeatRef.current !== null) {
+      window.clearInterval(repeatRef.current);
+      repeatRef.current = null;
+    }
+  };
+  const startIncrement = (e: React.PointerEvent) => {
+    if (disabled) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    inc();
+    repeatRef.current = window.setInterval(inc, 180);
+  };
+  const startDecrement = (e: React.PointerEvent) => {
+    if (disabled) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    dec();
+    repeatRef.current = window.setInterval(dec, 180);
+  };
+
   return (
     <div
       // Inline group so the pad sits "in the same block" as the number field
@@ -133,21 +164,33 @@ export default function SmartNumberInput({
         <div style={{ display: "flex", gap: 8 }}>
           <button
             type="button"
-            aria-label="Plus"
-            onClick={onPlusClick}
+            aria-label="Increase"
+            onPointerDown={(e) => startIncrement(e)}
+            onPointerUp={stopRepeat}
+            onPointerCancel={stopRepeat}
+            onPointerLeave={stopRepeat}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") onPlusClick();
+            }}
             disabled={disabled}
             style={btnStyle}
           >
-            +
+            <span aria-hidden="true">+</span>
           </button>
           <button
             type="button"
-            aria-label="Minus"
-            onClick={onMinusClick}
+            aria-label="Decrease"
+            onPointerDown={(e) => startDecrement(e)}
+            onPointerUp={stopRepeat}
+            onPointerCancel={stopRepeat}
+            onPointerLeave={stopRepeat}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") onMinusClick();
+            }}
             disabled={disabled}
             style={btnStyle}
           >
-            −
+            <span aria-hidden="true">−</span>
           </button>
         </div>
       )}

@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+  type ReactNode,
+} from "react";
 import { useMode } from "./hooks/useMode.js";
 import { generateLadder, generateLadderForSeed } from "./logic/generator.js";
 import { generateEasy, generateEasyForSeed } from "./logic/easy.js";
@@ -38,7 +45,7 @@ import {
 
 import ResetButton from "./components/ResetButton.js";
 import Feedback from "./routes/Feedback";
-import { useNavigate } from "react-router-dom"; // ⬅️ ADDED
+import { useNavigate } from "react-router-dom";
 
 type Status = "idle" | "playing" | "done";
 
@@ -102,7 +109,6 @@ function InlineResultsModal({
   const panelBorder = isDark ? "#334155" : "#e5e7eb";
   const panelText = isDark ? "#f8fafc" : "#111827";
 
-  // ⬇️ ADDED: we need navigate to push to /feedback
   const navigate = useNavigate();
   const goFeedback = () => navigate("/feedback", { replace: false });
 
@@ -195,12 +201,25 @@ function InlineResultsModal({
         </div>
 
         {!perfect && (
-          <p style={{ marginTop: 6, marginBottom: 10, color: isDark ? "#e5e7eb" : "#374151" }}>
+          <p
+            style={{
+              marginTop: 6,
+              marginBottom: 10,
+              color: isDark ? "#e5e7eb" : "#374151",
+            }}
+          >
             {message ?? "Nice effort—Try again! A little every day builds speed."}
           </p>
         )}
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            justifyContent: "flex-end",
+            flexWrap: "wrap",
+          }}
+        >
           <button
             onClick={onShare}
             style={{
@@ -216,7 +235,6 @@ function InlineResultsModal({
             Share
           </button>
 
-          {/* ⬇️ ADDED: Give feedback button */}
           <button
             onClick={goFeedback}
             style={{
@@ -370,16 +388,17 @@ export default function App() {
     sw.stop();
 
     const score = steps.length
-      ? steps.reduce((acc, s, i) => acc + (Number(answers[i]) === s.answer ? 1 : 0), 0)
+      ? steps.reduce(
+          (acc, s, i) => acc + (Number(answers[i]) === s.answer ? 1 : 0),
+          0
+        )
       : 0;
     const perfect = steps.length > 0 && score === steps.length;
 
-    // A) Gate the finish handler's streak update behind the flag
     if (FEATURE_STREAKS) {
       updateStreakOnFinish(score, steps.length || 8);
     }
 
-    // Mark played + update best per mode
     const modeKey = mode as Mode;
     markPlayedToday();
     updateBestOnFinish(modeKey, score, steps.length || 8, sw.ms);
@@ -418,26 +437,92 @@ export default function App() {
     };
   }, [status]);
 
-  // Global keydown listener to start stopwatch on FIRST keystroke
-  useEffect(() => {
+  /* ============================================================================
+     🔒 Start-on-First-Character (Mobile & Desktop, Race-proof)
+     - useLayoutEffect: attaches listeners BEFORE browser paints after status change,
+       so a very fast first tap cannot beat the handler.
+     - capture phase: nothing can swallow the event before we see it.
+     - events: beforeinput + input + paste + keydown (belt & suspenders).
+     - starts on ANY inserted character (first char) in an answer field.
+     - idempotent: guarded by local flag + sw.running.
+  ============================================================================ */
+  useLayoutEffect(() => {
     if (status !== "playing" || paused || sw.running) return;
 
-    const handler = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      const inAnswer =
-        !!t &&
-        (t.classList?.contains("answer-input") ||
-          (t.closest && !!t.closest(".answer-input")));
-      if (!inAnswer) return;
+    let started = false;
 
-      if (/^[0-9+\-*/^().]$/.test(e.key)) {
-        sw.start();
+    const isAnswerInput = (el: EventTarget | null): el is HTMLInputElement => {
+      const node = el as HTMLElement | null;
+      if (!node) return false;
+      if (node.classList?.contains("answer-input")) return true;
+      const closest = node.closest?.(".answer-input");
+      return !!closest;
+    };
+
+    const startNow = () => {
+      if (started || sw.running || status !== "playing" || paused) return;
+      started = true;
+      sw.start();
+    };
+
+    const onBeforeInput = (e: Event) => {
+      const be = e as InputEvent;
+      const target = e.target as HTMLElement | null;
+      if (!isAnswerInput(target)) return;
+
+      // Any insertion starts it (covers mobile keyboards, emoji, etc.)
+      if (be.inputType && be.inputType.startsWith("insert")) {
+        // data may be null on some numeric inputs on iOS; still start.
+        startNow();
       }
     };
 
-    window.addEventListener("keydown", handler, true);
-    return () => window.removeEventListener("keydown", handler, true);
-  }, [status, paused, sw]);
+    const onInput = (e: Event) => {
+      const target = e.target as HTMLElement | null;
+      if (!isAnswerInput(target)) return;
+
+      // If value length > 0, a character is present in the box; start.
+      const inputEl =
+        (target?.classList?.contains("answer-input")
+          ? (target as HTMLInputElement)
+          : (target?.closest?.(".answer-input") as HTMLInputElement | null)) ?? null;
+
+      if (inputEl && inputEl.value && inputEl.value.length > 0) {
+        startNow();
+      }
+    };
+
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!isAnswerInput(target)) return;
+
+      const txt = e.clipboardData?.getData("text") ?? "";
+      if (txt.length > 0) startNow();
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Some Android/desktop environments still send keydown; treat any visible
+      // character or digit as a start (we also rely on input/beforeinput).
+      const target = e.target as HTMLElement | null;
+      if (!isAnswerInput(target)) return;
+
+      // Ignore control/navigation keys; start on visible characters.
+      if (e.key.length === 1) startNow();
+    };
+
+    document.addEventListener("beforeinput", onBeforeInput, true);
+    document.addEventListener("input", onInput, true);
+    document.addEventListener("paste", onPaste, true);
+    document.addEventListener("keydown", onKeyDown, true);
+
+    return () => {
+      document.removeEventListener("beforeinput", onBeforeInput, true);
+      document.removeEventListener("input", onInput, true);
+      document.removeEventListener("paste", onPaste, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [status, paused, sw.running]);
+  /* ========================== END start-on-first-char ========================= */
 
   // Scoring
   const correctCount = useMemo(
@@ -531,7 +616,9 @@ export default function App() {
       {/* Top banner — centered title/emoji; theme selector pinned left */}
       <div className="top-banner">
         <div className="top-banner-title">
-          <span className="emoji" aria-hidden="true">⏱</span>
+          <span className="emoji" aria-hidden="true">
+            ⏱
+          </span>
           MicroMath
         </div>
 
@@ -561,7 +648,10 @@ export default function App() {
             }}
           >
             <div style={{ textAlign: "center" }}>
-              <h1 className="brand" style={{ position: "static", transform: "none", marginBottom: 8 }}>
+              <h1
+                className="brand"
+                style={{ position: "static", transform: "none", marginBottom: 8 }}
+              >
                 MicroMath
               </h1>
               <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
@@ -576,7 +666,10 @@ export default function App() {
                 aria-live="polite"
                 style={{ position: "absolute", right: 0, top: 0 }}
               >
-                <span className="timer-emoji" aria-hidden="true">⏱</span> {sw.formatted}
+                <span className="timer-emoji" aria-hidden="true">
+                  ⏱
+                </span>{" "}
+                {sw.formatted}
               </div>
             )}
           </header>
@@ -588,7 +681,10 @@ export default function App() {
             text={`⏱ ${sw.formatted}`}
             visible={miniVisible}
             onClick={() =>
-              mainTimerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
+              mainTimerRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              })
             }
           />
         )}
@@ -632,12 +728,10 @@ export default function App() {
             <div className="habit-days">
               <WeeklyCalendarRow days={calDays} />
               <div className="habit-streak">
-                {/* B) Gate reads where streak values show */}
                 {FEATURE_STREAKS && <StreakCaption text={streakCaption} />}
               </div>
             </div>
 
-            {/* BestPill sits to the right of the circles; only on Home (Idle) */}
             {status === "idle" && (
               <div className="habit-best bestpill-compact">
                 <BestPill modeLabel={modeLabel} best={bestForMode} />
@@ -649,7 +743,10 @@ export default function App() {
         {/* Results strip + Share */}
         {status === "done" && (
           <div className="results card" style={{ marginTop: 12, padding: 12 }}>
-            <div className="final-score" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div
+              className="final-score"
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
+            >
               <span className="meta-label">FINAL SCORE</span>
               <a className="meta-value">
                 {results.score}/{results.total}
@@ -677,7 +774,7 @@ export default function App() {
               className={`btn btn--primary ${!canPlayToday ? "btn--disabled" : ""}`}
             >
               {isDaily ? "Start Today's" : "Start Random"}{" "}
-             {mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
+              {mode === "hard" ? "Hard" : mode === "normal" ? "Normal" : "Easy"}
             </button>
           )}
 
@@ -723,7 +820,11 @@ export default function App() {
                   </div>
 
                   {/* Input */}
-                  <div style={disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined}>
+                  <div
+                    style={
+                      disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined
+                    }
+                  >
                     <SmartNumberInput
                       value={val}
                       onChange={(raw) => {
@@ -755,7 +856,9 @@ export default function App() {
                     />
                   </div>
 
-                  <span className="result-icon">{val ? (correct ? "✅" : "❌") : ""}</span>
+                  <span className="result-icon">
+                    {val ? (correct ? "✅" : "❌") : ""}
+                  </span>
                 </div>
               );
             })}
@@ -809,17 +912,19 @@ export default function App() {
             }}
           >
             <p style={{ margin: "0 0 10px" }}>
-              MicroMath is a stopwatch-based arithmetic workout. Pick a level (8 questions), press
-              Start, and the watch begins on your first input. Press Submit to stop and record your time.
-              Goal: beat your personal best. Share your results with a friend.
+              MicroMath is a stopwatch-based arithmetic workout. Pick a level (8
+              questions), press Start, and the watch begins on your first input.
+              Press Submit to stop and record your time. Goal: beat your
+              personal best. Share your results with a friend.
             </p>
 
             <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
               <strong>Daily Button</strong>
             </h3>
             <p style={{ margin: "0 0 10px" }}>
-              Tap Daily to play the same puzzle everyone gets today at your chosen level (Easy, Normal, or Hard).
-              Finish and share your time to compare with friends.
+              Tap Daily to play the same puzzle everyone gets today at your
+              chosen level (Easy, Normal, or Hard). Finish and share your time
+              to compare with friends.
             </p>
 
             <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
@@ -827,16 +932,23 @@ export default function App() {
             </h3>
             <ul style={{ margin: "0 0 10px 18px", padding: 0 }}>
               <li>Start where you are: pen &amp; paper welcome.</li>
-              <li>Calculator is allowed, but try to wean off—aim for quick mental math.</li>
-              <li>Show up daily (or as often as you can) and chip away at your time.</li>
+              <li>
+                Calculator is allowed, but try to wean off—aim for quick mental
+                math.
+              </li>
+              <li>
+                Show up daily (or as often as you can) and chip away at your
+                time.
+              </li>
             </ul>
 
             <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
               <strong>Why to use it regularly</strong>
             </h3>
             <p style={{ margin: "0 0 10px" }}>
-              Short, consistent reps build number sense, speed, and confidence. You don’t need perfect streaks, just keep
-              nudging your personal best downward.
+              Short, consistent reps build number sense, speed, and confidence.
+              You don’t need perfect streaks, just keep nudging your personal
+              best downward.
             </p>
 
             <h3 style={{ margin: "12px 0 6px", fontWeight: 700 }}>
@@ -848,7 +960,9 @@ export default function App() {
               <li>Hard: adds exponents and parentheses</li>
             </ul>
 
-            <p style={{ margin: 0 }}>Ready? Tap Start, race the clock, and share your best time.</p>
+            <p style={{ margin: 0 }}>
+              Ready? Tap Start, race the clock, and share your best time.
+            </p>
           </div>
         )}
 

@@ -33,3 +33,4 @@ export default function WeeklyCalendarRow({ days, onClickDay }: Props) {
     </div>
   );
 }
+
