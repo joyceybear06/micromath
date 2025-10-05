@@ -1,10 +1,10 @@
-import React, { useMemo, useRef, useCallback, useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
   value: string;
   onChange: (val: string) => void;
   allowDecimal?: boolean;
-  className?: string; // should include "answer-input"
+  className?: string;
   disabled?: boolean;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   placeholder?: string;
@@ -19,7 +19,7 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // --- MOBILE-ONLY MINUS BUTTON VISIBILITY (robust detection after mount) ---
+  // --- Detect mobile devices ---
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const detect = () => {
@@ -54,16 +54,18 @@ export default function SmartNumberInput({
     return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
   }, [className]);
 
-  // --- SANITIZE TYPING ---
+  // --- Clean keyboard input ---
   function sanitize(raw: string): string {
     const trimmed = raw.replace(/\s+/g, "");
     if (trimmed === "-") return "-";
+
     let sign = "";
     let rest = trimmed;
     if (rest.startsWith("-")) {
       sign = "-";
       rest = rest.slice(1);
     }
+
     if (allowDecimal) {
       rest = rest.replace(/[^\d.]/g, "");
       const parts = rest.split(".");
@@ -72,6 +74,7 @@ export default function SmartNumberInput({
     } else {
       rest = rest.replace(/\D/g, "");
     }
+
     return sign + rest;
   }
 
@@ -87,23 +90,22 @@ export default function SmartNumberInput({
     }
   }
 
-  // --- NEGATIVE TOGGLE (single button) ---
-  const toggleMinus = useCallback(() => {
+  // --- Toggle negative sign ---
+  function toggleMinus() {
     if (disabled) return;
     const raw = (value ?? "").trim();
     const next = raw.startsWith("-") ? raw.slice(1) : raw ? `-${raw}` : "-";
     onChange(next);
     focusInput();
-  }, [value, disabled, onChange]);
+  }
 
   return (
     <div
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
+        position: "relative",
         width: "100%",
         maxWidth: 240,
+        display: "inline-block",
       }}
     >
       <input
@@ -118,10 +120,14 @@ export default function SmartNumberInput({
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label="Answer"
-        style={{ flex: 1, minWidth: 0 }}
+        style={{
+          width: "100%",
+          paddingRight: isMobile ? 56 : undefined, // Space for embedded minus button
+          boxSizing: "border-box",
+        }}
       />
 
-      {/* MOBILE-ONLY: single negative toggle */}
+      {/* Mobile-only minus toggle inside the input */}
       {isMobile && (
         <button
           type="button"
@@ -135,12 +141,30 @@ export default function SmartNumberInput({
             if (e.key === "Enter" || e.key === " ") toggleMinus();
           }}
           disabled={disabled}
-          style={minusBtnStyle}
+          style={{
+            position: "absolute",
+            top: "50%",
+            right: 6,
+            transform: "translateY(-50%)",
+            height: 44,
+            width: 44,
+            minHeight: 44,
+            minWidth: 44,
+            borderRadius: 9999,
+            border: "1px solid rgba(0,0,0,0.12)",
+            background: "#fff",
+            color: "#000",
+            fontSize: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+            touchAction: "manipulation",
+          }}
         >
-          {/* Inline SVG ensures glyph is visible regardless of fonts */}
           <svg
-            width="22"
-            height="22"
+            width="20"
+            height="20"
             viewBox="0 0 24 24"
             aria-hidden="true"
             focusable="false"
@@ -159,20 +183,3 @@ export default function SmartNumberInput({
     </div>
   );
 }
-
-// 48px circle; explicit colors so the minus is never invisible on mobile themes
-const minusBtnStyle: React.CSSProperties = {
-  height: 48,
-  width: 48,
-  borderRadius: 9999,
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "#fff",
-  color: "#000",
-  fontSize: 0, // ignore font overrides; we render SVG
-  cursor: "pointer",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
-  touchAction: "manipulation",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
