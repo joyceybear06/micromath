@@ -11,46 +11,61 @@ export default function Home() {
   const [streak, setStreak] = useState<{ current: number; best: number }>({ current: 0, best: 0 });
   const played = useMemo(() => hasPlayedToday(diff), [diff]);
 
-useEffect(() => {
-  const newStreak = getStreak(diff);
-  setStreak(newStreak);
-}, [diff]);
-
+  useEffect(() => {
+    const s = getStreak(diff);
+    setStreak(s);
+  }, [diff]);
 
   function change(e: React.ChangeEvent<HTMLSelectElement>) {
-    const d = e.target.value as "easy" | "normal";
+    const d = e.target.value as "easy" | "normal"; // keep types aligned with your streak lib
     setDiffState(d);
     setDifficulty(d);
   }
 
   return (
-    <section className="mx-auto max-w-3xl p-6">
-      <h1 className="text-3xl font-bold">Micromath</h1>
-      <p className="mt-2 text-slate-600">60 second daily arithmetic ladder. 10 rungs.</p>
+    <section className="mx-auto max-w-md px-4 sm:max-w-2xl sm:px-6 pt-6 text-center">
+      <div className="space-y-6">
+        <header className="space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight">MicroMath</h1>
+          <p className="text-sm opacity-80">60-second daily arithmetic ladder. 10 rungs.</p>
+          <div className="text-xs opacity-70">Date: {today()}</div>
+        </header>
 
-      <div className="mt-3 text-sm text-slate-600">Date: {today()}</div>
+        {/* Difficulty row */}
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <label htmlFor="diff" className="text-sm opacity-80">
+            Difficulty
+          </label>
+          <select
+            id="diff"
+            value={diff}
+            onChange={change}
+            className="rounded-full border px-4 py-2 text-base w-full max-w-[220px] sm:w-auto"
+          >
+            <option value="easy">Easy</option>
+            <option value="normal">Normal</option>
+          </select>
+        </div>
 
-      <div className="mt-4 flex items-center gap-3">
-        <label className="text-sm text-slate-600" htmlFor="diff">Difficulty</label>
-        <select id="diff" value={diff} onChange={change} className="rounded border px-2 py-1">
-          <option value="easy">Easy</option>
-          <option value="normal">Normal</option>
-        </select>
-        <span className="text-slate-700">Streak: {streak.current} 
-          {streak.best}  
-</span>
-      </div>
+        {/* Streak copy */}
+        <p className="text-sm opacity-90">
+          You're on a <span className="font-semibold">{streak.current}-day</span> run. Best:{" "}
+          <span className="font-semibold">{streak.best}</span>
+        </p>
 
-      <div className="mt-6">
-        <Link
-          to={played ? "/results" : "/play"}
-          className={`rounded-md px-4 py-2 text-white ${played ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600"}`}
-          aria-disabled={played}
-        >
-          {played ? "Played today. See results" : "Play Today"}
-        </Link>
+        {/* Primary CTA */}
+        <div>
+          <Link
+            to={played ? "/results" : "/play"}
+            className={`inline-flex w-full sm:w-auto items-center justify-center rounded-xl px-5 py-3 font-medium text-white ${
+              played ? "bg-slate-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            }`}
+            aria-disabled={played}
+          >
+            {played ? "Played today. See results" : "Start Today's Puzzle"}
+          </Link>
+        </div>
       </div>
     </section>
-    
   );
 }

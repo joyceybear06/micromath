@@ -689,38 +689,39 @@ export default function App() {
           />
         )}
 
-        {/* Tabs + Daily button */}
-        <div className="controls-row mode-tabs">
-          <button
-            onClick={() => setMode("easy")}
-            className={`tab mode-tab ${mode === "easy" ? "tab--active mode-tab--active" : ""}`}
-          >
-            Easy (8 questions)
-          </button>
+{/* Tabs + Daily button */}
+<div className="controls-row mode-tabs grid grid-cols-1 gap-3 justify-items-stretch sm:flex sm:flex-row sm:justify-center sm:items-center">
+  <button
+    onClick={() => setMode("easy")}
+    className={`w-full sm:w-auto tab mode-tab ${mode === "easy" ? "tab--active mode-tab--active" : ""}`}
+  >
+    Easy<span className="hidden sm:inline"> (8 questions)</span>
+  </button>
 
-          <button
-            onClick={() => setMode("normal")}
-            className={`tab mode-tab ${mode === "normal" ? "tab--active mode-tab--active" : ""}`}
-          >
-            Normal (8 questions)
-          </button>
+  <button
+    onClick={() => setMode("normal")}
+    className={`w-full sm:w-auto tab mode-tab ${mode === "normal" ? "tab--active mode-tab--active" : ""}`}
+  >
+    Normal<span className="hidden sm:inline"> (8 questions)</span>
+  </button>
 
-          <button
-            onClick={() => setMode("hard")}
-            className={`tab mode-tab ${mode === "hard" ? "tab--active mode-tab--active" : ""}`}
-          >
-            Hard (8 questions)
-          </button>
+  <button
+    onClick={() => setMode("hard")}
+    className={`w-full sm:w-auto tab mode-tab ${mode === "hard" ? "tab--active mode-tab--active" : ""}`}
+  >
+    Hard<span className="hidden sm:inline"> (8 questions)</span>
+  </button>
 
-          <button
-            type="button"
-            className={`daily-btn ${isDaily ? "daily-btn--active" : ""}`}
-            onClick={() => setIsDaily((v) => !v)}
-            title="Daily gives you the same puzzle everyone today"
-          >
-            Daily
-          </button>
-        </div>
+  <button
+    type="button"
+    className={`order-4 sm:order-none w-full sm:w-auto daily-btn ${isDaily ? "daily-btn--active" : ""}`}
+    onClick={() => setIsDaily((v) => !v)}
+    title="Daily gives you the same puzzle everyone today"
+  >
+    Daily
+  </button>
+</div>
+
 
         {/* Habit row: calendar (left), best pill (right), streak under calendar */}
         <div className="habit-row">
