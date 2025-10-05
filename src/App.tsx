@@ -693,23 +693,26 @@ export default function App() {
 <div className="controls-row mode-tabs grid grid-cols-1 gap-3 justify-items-stretch sm:flex sm:flex-row sm:justify-center sm:items-center">
   <button
     onClick={() => setMode("easy")}
+    aria-label="Switch to Easy mode"
     className={`w-full sm:w-auto tab mode-tab ${mode === "easy" ? "tab--active mode-tab--active" : ""}`}
   >
-    Easy<span className="hidden sm:inline"> (8 questions)</span>
+    Easy
   </button>
 
   <button
     onClick={() => setMode("normal")}
+    aria-label="Switch to Normal mode"
     className={`w-full sm:w-auto tab mode-tab ${mode === "normal" ? "tab--active mode-tab--active" : ""}`}
   >
-    Normal<span className="hidden sm:inline"> (8 questions)</span>
+    Normal
   </button>
 
   <button
     onClick={() => setMode("hard")}
+    aria-label="Switch to Hard mode"
     className={`w-full sm:w-auto tab mode-tab ${mode === "hard" ? "tab--active mode-tab--active" : ""}`}
   >
-    Hard<span className="hidden sm:inline"> (8 questions)</span>
+    Hard
   </button>
 
   <button
@@ -721,6 +724,7 @@ export default function App() {
     Daily
   </button>
 </div>
+
 
 
         {/* Habit row: calendar (left), best pill (right), streak under calendar */}
