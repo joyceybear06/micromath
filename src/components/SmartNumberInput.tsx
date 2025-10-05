@@ -19,21 +19,22 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // Mobile-only detection (no viewport heuristic to avoid desktop false-positives)
-  const [isMobile, setIsMobile] = useState(false);
+  // PHONE-ONLY DETECTION (strict: iPhone or Android Mobile + touch)
+  const [isPhone, setIsPhone] = useState(false);
   useEffect(() => {
     const detect = () => {
       try {
         const ua = (navigator.userAgent || "").toLowerCase();
-        const touchCap =
+        const hasTouch =
           (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
-          // old iOS
           ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0) ||
           typeof (window as any).ontouchstart !== "undefined";
-        const uaMobile = /iphone|ipad|ipod|android/.test(ua);
-        setIsMobile(!!(touchCap || uaMobile));
+        const isIPhone = /iphone/.test(ua);
+        const isAndroidPhone = /android/.test(ua) && /mobile/.test(ua);
+        // exclude ipads/mac/windows touch laptops by requiring phone UA + touch
+        setIsPhone(Boolean(hasTouch && (isIPhone || isAndroidPhone)));
       } catch {
-        setIsMobile(false);
+        setIsPhone(false);
       }
     };
     detect();
@@ -81,7 +82,7 @@ export default function SmartNumberInput({
     }
   }
 
-  // single minus toggle
+  // minus toggle (phone only)
   function toggleMinus() {
     if (disabled) return;
     const raw = (value ?? "").trim();
@@ -91,7 +92,6 @@ export default function SmartNumberInput({
   }
 
   return (
-    // container establishes stacking context for iOS; minus chip overlays inside input
     <div
       style={{
         position: "relative",
@@ -114,15 +114,15 @@ export default function SmartNumberInput({
         aria-label="Answer"
         style={{
           width: "100%",
-          paddingRight: isMobile ? 56 : undefined, // room for embedded minus chip
+          paddingRight: isPhone ? 52 : undefined, // space for the embedded minus
           boxSizing: "border-box",
           position: "relative",
-          zIndex: 1, // ensure overlay can sit above on iOS
+          zIndex: 1,
         }}
       />
 
-      {/* Mobile-only minus chip INSIDE the input (iOS-safe overlay) */}
-      {isMobile && (
+      {/* PHONE ONLY: small rectangular minus chip INSIDE the input (no overlap) */}
+      {isPhone && (
         <button
           type="button"
           aria-label="Toggle negative"
@@ -138,14 +138,13 @@ export default function SmartNumberInput({
           style={{
             position: "absolute",
             top: "50%",
-            right: 6,
-            transform: "translateY(-50%) translateZ(0)", // iOS layer promotion
-            WebkitTransform: "translateY(-50%) translateZ(0)",
-            height: 44,
-            width: 44,
-            minHeight: 44,
-            minWidth: 44,
-            borderRadius: 9999,
+            right: 8,
+            transform: "translateY(-50%) translateZ(0)",
+            height: 32,        // smaller rectangle
+            width: 40,
+            minHeight: 32,
+            minWidth: 40,
+            borderRadius: 6,   // rectangle (not circle)
             border: "1px solid rgba(0,0,0,0.12)",
             background: "#fff",
             color: "#000",
@@ -155,22 +154,22 @@ export default function SmartNumberInput({
             justifyContent: "center",
             boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
             touchAction: "manipulation",
-            zIndex: 5, // sit above input on mobile Safari
+            zIndex: 5,
             pointerEvents: "auto",
           }}
         >
           <svg
-            width="20"
-            height="20"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             aria-hidden="true"
             focusable="false"
             style={{ display: "block" }}
           >
             <path
-              d="M5 12h14"
+              d="M6 12h12"
               stroke="#000"
-              strokeWidth="2.5"
+              strokeWidth="2.4"
               strokeLinecap="round"
               fill="none"
             />
