@@ -4,7 +4,7 @@ type Props = {
   value: string;
   onChange: (val: string) => void;
   allowDecimal?: boolean;
-  className?: string;
+  className?: string; // include "answer-input"
   disabled?: boolean;
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
   placeholder?: string;
@@ -19,32 +19,26 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // --- Detect mobile devices ---
+  // Mobile-only detection (no viewport heuristic to avoid desktop false-positives)
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const detect = () => {
       try {
-        const w = window as any;
-        const coarse = !!(w.matchMedia && w.matchMedia("(pointer: coarse)").matches);
-        const touch =
-          "ontouchstart" in w ||
-          (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
-          ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0);
         const ua = (navigator.userAgent || "").toLowerCase();
-        const uaMobile = /iphone|ipad|ipod|android|mobile/.test(ua);
-        const narrow = Math.min(window.innerWidth, window.innerHeight) <= 900;
-        setIsMobile(coarse || touch || uaMobile || narrow);
+        const touchCap =
+          (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
+          // old iOS
+          ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0) ||
+          typeof (window as any).ontouchstart !== "undefined";
+        const uaMobile = /iphone|ipad|ipod|android/.test(ua);
+        setIsMobile(!!(touchCap || uaMobile));
       } catch {
         setIsMobile(false);
       }
     };
     detect();
-    window.addEventListener("resize", detect);
     window.addEventListener("orientationchange", detect);
-    return () => {
-      window.removeEventListener("resize", detect);
-      window.removeEventListener("orientationchange", detect);
-    };
+    return () => window.removeEventListener("orientationchange", detect);
   }, []);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -54,18 +48,16 @@ export default function SmartNumberInput({
     return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
   }, [className]);
 
-  // --- Clean keyboard input ---
+  // sanitize keyboard input
   function sanitize(raw: string): string {
     const trimmed = raw.replace(/\s+/g, "");
     if (trimmed === "-") return "-";
-
     let sign = "";
     let rest = trimmed;
     if (rest.startsWith("-")) {
       sign = "-";
       rest = rest.slice(1);
     }
-
     if (allowDecimal) {
       rest = rest.replace(/[^\d.]/g, "");
       const parts = rest.split(".");
@@ -74,7 +66,6 @@ export default function SmartNumberInput({
     } else {
       rest = rest.replace(/\D/g, "");
     }
-
     return sign + rest;
   }
 
@@ -90,7 +81,7 @@ export default function SmartNumberInput({
     }
   }
 
-  // --- Toggle negative sign ---
+  // single minus toggle
   function toggleMinus() {
     if (disabled) return;
     const raw = (value ?? "").trim();
@@ -100,6 +91,7 @@ export default function SmartNumberInput({
   }
 
   return (
+    // container establishes stacking context for iOS; minus chip overlays inside input
     <div
       style={{
         position: "relative",
@@ -122,12 +114,14 @@ export default function SmartNumberInput({
         aria-label="Answer"
         style={{
           width: "100%",
-          paddingRight: isMobile ? 56 : undefined, // Space for embedded minus button
+          paddingRight: isMobile ? 56 : undefined, // room for embedded minus chip
           boxSizing: "border-box",
+          position: "relative",
+          zIndex: 1, // ensure overlay can sit above on iOS
         }}
       />
 
-      {/* Mobile-only minus toggle inside the input */}
+      {/* Mobile-only minus chip INSIDE the input (iOS-safe overlay) */}
       {isMobile && (
         <button
           type="button"
@@ -145,7 +139,8 @@ export default function SmartNumberInput({
             position: "absolute",
             top: "50%",
             right: 6,
-            transform: "translateY(-50%)",
+            transform: "translateY(-50%) translateZ(0)", // iOS layer promotion
+            WebkitTransform: "translateY(-50%) translateZ(0)",
             height: 44,
             width: 44,
             minHeight: 44,
@@ -160,6 +155,8 @@ export default function SmartNumberInput({
             justifyContent: "center",
             boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
             touchAction: "manipulation",
+            zIndex: 5, // sit above input on mobile Safari
+            pointerEvents: "auto",
           }}
         >
           <svg
