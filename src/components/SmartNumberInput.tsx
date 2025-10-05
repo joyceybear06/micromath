@@ -19,19 +19,18 @@ export default function SmartNumberInput({
   onKeyDown,
   placeholder,
 }: Props) {
-  // PHONE-ONLY DETECTION (strict: iPhone or Android Mobile + touch)
+  // PHONE-ONLY (strict: iPhone or Android phone + touch)
   const [isPhone, setIsPhone] = useState(false);
   useEffect(() => {
     const detect = () => {
       try {
         const ua = (navigator.userAgent || "").toLowerCase();
+        const isIPhone = /iphone/.test(ua);
+        const isAndroidPhone = /android/.test(ua) && /mobile/.test(ua);
         const hasTouch =
           (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
           ((navigator as any).msMaxTouchPoints && (navigator as any).msMaxTouchPoints > 0) ||
           typeof (window as any).ontouchstart !== "undefined";
-        const isIPhone = /iphone/.test(ua);
-        const isAndroidPhone = /android/.test(ua) && /mobile/.test(ua);
-        // exclude ipads/mac/windows touch laptops by requiring phone UA + touch
         setIsPhone(Boolean(hasTouch && (isIPhone || isAndroidPhone)));
       } catch {
         setIsPhone(false);
@@ -49,7 +48,7 @@ export default function SmartNumberInput({
     return hasAnswer ? className : `${className ? className + " " : ""}answer-input`;
   }, [className]);
 
-  // sanitize keyboard input
+  // Clean keyboard input
   function sanitize(raw: string): string {
     const trimmed = raw.replace(/\s+/g, "");
     if (trimmed === "-") return "-";
@@ -82,7 +81,7 @@ export default function SmartNumberInput({
     }
   }
 
-  // minus toggle (phone only)
+  // Toggle negative
   function toggleMinus() {
     if (disabled) return;
     const raw = (value ?? "").trim();
@@ -90,6 +89,11 @@ export default function SmartNumberInput({
     onChange(next);
     focusInput();
   }
+
+  // UI constants (compact rectangular chip)
+  const CHIP_W = 40;
+  const CHIP_H = 28;
+  const CHIP_RIGHT = 8;
 
   return (
     <div
@@ -114,14 +118,15 @@ export default function SmartNumberInput({
         aria-label="Answer"
         style={{
           width: "100%",
-          paddingRight: isPhone ? 52 : undefined, // space for the embedded minus
           boxSizing: "border-box",
+          // reserve space for the embedded chip ONLY on phones
+          paddingRight: isPhone ? CHIP_W + CHIP_RIGHT + 4 : undefined,
           position: "relative",
           zIndex: 1,
         }}
       />
 
-      {/* PHONE ONLY: small rectangular minus chip INSIDE the input (no overlap) */}
+      {/* PHONE ONLY: minimal rectangular minus chip inside the input (no overlap, subtle UI) */}
       {isPhone && (
         <button
           type="button"
@@ -138,38 +143,37 @@ export default function SmartNumberInput({
           style={{
             position: "absolute",
             top: "50%",
-            right: 8,
-            transform: "translateY(-50%) translateZ(0)",
-            height: 32,        // smaller rectangle
-            width: 40,
-            minHeight: 32,
-            minWidth: 40,
-            borderRadius: 6,   // rectangle (not circle)
+            right: CHIP_RIGHT,
+            transform: "translateY(-50%)",
+            height: CHIP_H,
+            width: CHIP_W,
+            minHeight: CHIP_H,
+            minWidth: CHIP_W,
+            borderRadius: 6, // rectangle
             border: "1px solid rgba(0,0,0,0.12)",
-            background: "#fff",
+            background: "#F6F8FF", // soft pill look that blends with your UI
             color: "#000",
-            fontSize: 0,
+            fontSize: 0, // icon-only
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+            boxShadow: "0 1px 1px rgba(0,0,0,0.04)",
             touchAction: "manipulation",
             zIndex: 5,
-            pointerEvents: "auto",
           }}
         >
           <svg
-            width="18"
-            height="18"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             aria-hidden="true"
             focusable="false"
             style={{ display: "block" }}
           >
             <path
-              d="M6 12h12"
-              stroke="#000"
-              strokeWidth="2.4"
+              d="M7 12h10"
+              stroke="#1F2937"
+              strokeWidth="2.2"
               strokeLinecap="round"
               fill="none"
             />
