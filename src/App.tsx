@@ -944,7 +944,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Instructions */}
+         {/* Instructions */}
         {status === "idle" && (
           <div
             className="rules card"
@@ -1011,14 +1011,14 @@ export default function App() {
           </div>
         )}
 
- {/* Tally Fox — static, centered, smaller, below the white box */}
+{/* Tally Fox — static, centered, below the white box (smaller) */}
         {status === "idle" && (
           <div
             style={{
               display: "flex",
               justifyContent: "center",
               marginTop: 12,
-              marginBottom: 8,
+              marginBottom: 10,
             }}
           >
             <img
@@ -1028,9 +1028,8 @@ export default function App() {
               loading="lazy"
               decoding="async"
               style={{
-                // Smaller but still visible on all screens
-                height: "clamp(38px, 4.8vw, 52px)",
-                width:  "clamp(38px, 4.8vw, 52px)",
+                height: "clamp(34px, 4.2vw, 48px)",   // smaller than before
+                width:  "clamp(34px, 4.2vw, 48px)",
                 objectFit: "contain",
                 display: "block",
               }}

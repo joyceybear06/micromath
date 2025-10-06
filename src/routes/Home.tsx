@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { getStreak, getDifficulty, setDifficulty, hasPlayedToday } from "../lib/streak";
 import { useEffect, useMemo, useState } from "react";
 
+
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -17,13 +18,14 @@ export default function Home() {
   }, [diff]);
 
   function change(e: React.ChangeEvent<HTMLSelectElement>) {
-    const d = e.target.value as "easy" | "normal"; // keep types aligned with your streak lib
+    const d = e.target.value as "easy" | "normal";
     setDiffState(d);
     setDifficulty(d);
   }
 
   return (
-    <section className="mx-auto max-w-md px-4 sm:max-w-2xl sm:px-6 pt-6 text-center">
+    // Extra bottom padding so the fixed fox never overlaps the CTA
+    <section className="mx-auto max-w-md px-4 sm:max-w-2xl sm:px-6 pt-6 text-center pb-28 sm:pb-36">
       <div className="space-y-6">
         <header className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">MicroMath</h1>
@@ -66,6 +68,10 @@ export default function Home() {
           </Link>
         </div>
       </div>
+
+      {/* Bottom-center fox: smaller, with debug ON so you can verify it renders.
+          After you see it, change debug={false}. */}
+    
     </section>
   );
 }
