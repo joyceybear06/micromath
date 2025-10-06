@@ -47,6 +47,11 @@ import ResetButton from "./components/ResetButton.js";
 import Feedback from "./routes/Feedback";
 import { useNavigate } from "react-router-dom";
 
+import FoxMascot from "./assets/mascot-fox.png";
+import FoxFooter from "./components/FoxFooter";
+
+
+
 type Status = "idle" | "playing" | "done";
 
 const pad = (n: number) => n.toString().padStart(2, "0");
@@ -634,46 +639,81 @@ export default function App() {
         </select>
       </div>
 
-      <main className="app-container" key={session}>
-        {/* Header with fixed height; timer hidden on Home */}
-        <StickyHeader>
-          <header
-            className="header"
-            style={{
-              position: "relative",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "flex-start",
-              marginBottom: 24,
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <h1
-                className="brand"
-                style={{ position: "static", transform: "none", marginBottom: 8 }}
-              >
-                MicroMath
-              </h1>
-              <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
-                Your Daily Math Dealer 🙂
-              </p>
-            </div>
+<main className="app-container" key={session}>
 
-            {status !== "idle" && (
-              <div
-                className="header-timer"
-                ref={mainTimerRef}
-                aria-live="polite"
-                style={{ position: "absolute", right: 0, top: 0 }}
-              >
-                <span className="timer-emoji" aria-hidden="true">
-                  ⏱
-                </span>{" "}
-                {sw.formatted}
-              </div>
-            )}
-          </header>
-        </StickyHeader>
+
+{/* Header with fixed height; timer hidden on Home */}
+<StickyHeader>
+  <header
+    className="header"
+    style={{
+      position: "relative",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "flex-start",
+      marginBottom: 24,
+    }}
+  >
+{/* Brand row: BIGGER fox + title/subtitle */}
+<div
+  style={{
+    display: "flex",
+    alignItems: "baseline", // keeps M baseline nice
+    justifyContent: "center",
+    gap: 14,                // breathing room
+    width: "100%",
+    flexWrap: "nowrap",
+  }}
+>
+  <img
+    src={FoxMascot}
+    alt=""                  // decorative
+    role="presentation"
+    loading="eager"
+    decoding="async"
+
+    // Bigger but responsive: ~48px on small phones → up to 72px on large screens
+    style={{
+      // +12%: clearer on desktop & phones without overpowering the H1
+      height: "clamp(54px, 7vw, 80px)",
+      width:  "clamp(54px, 7vw, 80px)",
+      objectFit: "contain",
+      flexShrink: 0,
+      transform: "translateY(2px)",
+    }}
+  />
+
+  <div style={{ textAlign: "left" }}>
+    <h1
+      className="brand"
+      style={{ position: "static", transform: "none", marginBottom: 8 }}
+    >
+      MicroMath
+    </h1>
+    <p className="brand-subtitle" style={{ marginTop: 0, marginBottom: 0 }}>
+      Your Daily Math Dealer 🙂
+    </p>
+  </div>
+</div>
+
+
+    {/* Stopwatch on the right (unchanged) */}
+    {status !== "idle" && (
+      <div
+        className="header-timer"
+        ref={mainTimerRef}
+        aria-live="polite"
+        style={{ position: "absolute", right: 0, top: 0 }}
+      >
+        <span className="timer-emoji" aria-hidden="true">
+          ⏱
+        </span>{" "}
+        {sw.formatted}
+      </div>
+    )}
+  </header>
+</StickyHeader>
+
 
         {/* Floating mini stopwatch */}
         {status === "playing" && (
@@ -971,6 +1011,33 @@ export default function App() {
           </div>
         )}
 
+ {/* Tally Fox — static, centered, smaller, below the white box */}
+        {status === "idle" && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginTop: 12,
+              marginBottom: 8,
+            }}
+          >
+            <img
+              src={FoxMascot}
+              alt=""
+              role="presentation"
+              loading="lazy"
+              decoding="async"
+              style={{
+                // Smaller but still visible on all screens
+                height: "clamp(38px, 4.8vw, 52px)",
+                width:  "clamp(38px, 4.8vw, 52px)",
+                objectFit: "contain",
+                display: "block",
+              }}
+            />
+          </div>
+        )}
+
         <footer className="footer">
           © {new Date().getFullYear()} MicroMath
           {(() => {
@@ -980,7 +1047,7 @@ export default function App() {
         </footer>
 
         {/* Render results modal */}
-        <InlineResultsModal
+            <InlineResultsModal
           open={results.open}
           timeMs={results.timeMs}
           score={results.score}
@@ -990,6 +1057,8 @@ export default function App() {
           onClose={() => setResults((r) => ({ ...r, open: false }))}
         />
       </main>
+
+
     </>
   );
 }
